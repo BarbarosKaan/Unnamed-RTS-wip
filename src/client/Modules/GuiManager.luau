@@ -12,8 +12,8 @@ local uiService = game:GetService("UserInputService")
 
 local sharedFolder = replicatedStorage:WaitForChild("Shared")
 local dataFolder = sharedFolder.Data
-local remotes = sharedFolder.Remotes
-local assets = sharedFolder.Assets
+local remotes = replicatedStorage.Remotes
+local assets = replicatedStorage.Assets
 local guiAssets = assets.UI
 
 local unitData = require(dataFolder.UnitData)

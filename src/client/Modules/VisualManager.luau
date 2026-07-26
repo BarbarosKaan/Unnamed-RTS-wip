@@ -2,7 +2,7 @@ local VisualManager = {}
 local beamSegments = {}
 
 -- Click efekti
-local clickAtt = game.ReplicatedStorage.Shared.Assets.Effects.ClickAttachment
+local clickAtt = game.ReplicatedStorage.Assets.Effects.ClickAttachment
 
 function VisualManager.AddHighlight(model)
 	if not model.PrimaryPart then

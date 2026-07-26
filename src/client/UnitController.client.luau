@@ -6,9 +6,8 @@ local StarterPlayer = game:GetService("StarterPlayer")
 local StarterPlayerScripts = StarterPlayer.StarterPlayerScripts
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
-local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Modules = StarterPlayerScripts.Client:WaitForChild("Modules")
-local Remotes = Shared:WaitForChild("Remotes")
+local Remotes = ReplicatedStorage:WaitForChild("Remotes")
 
 -- Farenin görünmez duvarları yok sayması için filtre (Klasör adı: Walls)
 mouse.TargetFilter = workspace:WaitForChild("Walls")
@@ -110,7 +109,7 @@ local function handleUnitHover()
 	if foundUnit ~= currentHoveredUnit then
 		if currentHoveredUnit then
 			SelectionManager.HoverEnd(currentHoveredUnit)
-			GuiManager.HoverEnd(currentHoveredUnit)
+			GuiManager.HoverEnd()
 		end
 
 		currentHoveredUnit = foundUnit

@@ -1,5 +1,6 @@
 local replicatedStorage = game:GetService("ReplicatedStorage")
 local serverScriptService = game:GetService("ServerScriptService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local server = serverScriptService.Server
 local classes = server.Classes
@@ -7,7 +8,7 @@ local classes = server.Classes
 local sharedF = replicatedStorage.Shared
 local dataFolder = sharedF.Data
 local modules = server.Modules
-local remotes = sharedF.Remotes
+local remotes = ReplicatedStorage.Remotes
 
 local unitClass = require(classes.UnitClass)
 local unitData = require(dataFolder.UnitData)
@@ -181,7 +182,7 @@ buildEvent.OnServerEvent:Connect(function(plr, building, pos, zonePart)
 
 	playerCash.Value -= buildingCost
 
-	local model = game.ReplicatedStorage.Shared.Assets.Models.BuildingModels:FindFirstChild(building):Clone()
+	local model = game.ReplicatedStorage.Assets.Models.BuildingModels:FindFirstChild(building):Clone()
 	model:PivotTo(pos)
 	model.Parent = workspace
 
@@ -272,6 +273,7 @@ isLimitRemote.OnServerInvoke = function(plr, uType, unit)
 		data = buildingData[unit.Name]
 		return buildingClass.checkForLimit(plr, data)
 	end
+	return false
 end
 
 castleDestroyed.Event:Connect(function(data)

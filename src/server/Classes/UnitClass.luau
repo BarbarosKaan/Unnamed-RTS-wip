@@ -18,12 +18,12 @@ local unitData = require(dataFolder.UnitData)
 local gameManager = require(modules.GameManager)
 
 --// Remotelar
-local events = sharedFolder.Remotes
+local events = ReplicatedStorage.Remotes
 local removeSelectionEvent = events.RemoveSelectionEvent
 local notificationEvent = events.NotificationEvent
 
 --// Assets
-local assets = sharedFolder.Assets
+local assets = ReplicatedStorage.Assets
 local uiAssets = assets.UI
 local modelAssets = assets.Models
 

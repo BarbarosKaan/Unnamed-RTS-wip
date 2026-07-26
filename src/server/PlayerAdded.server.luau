@@ -3,7 +3,6 @@ local Teams = game:GetService("Teams")
 
 local server = ServerScriptService.Server
 local classes = server.Classes
-local sharedF = game.ReplicatedStorage.Shared
 
 local gameManager = require(server.Modules.GameManager)
 local buildingClass = require(classes.BuildingClass)
@@ -50,7 +49,7 @@ for _, object in ipairs(workspace:GetChildren()) do
 	if object.Name == "HQ" and object:IsA("Model") then
 		local hqBuilding = buildingClass.New("HQ", nil, object)
 
-		local builderModel = sharedF.Assets.Models.UnitModels.Builder:Clone()
+		local builderModel = game.ReplicatedStorage.Assets.Models.UnitModels.Builder:Clone()
 		builderModel.Parent = workspace.Units
 		builderModel:PivotTo(object:GetPivot() * CFrame.new(7, 0, 0))
 

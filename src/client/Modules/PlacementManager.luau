@@ -5,6 +5,7 @@ local GuiManager
 
 local runService = game:GetService("RunService")
 local collectionService = game:GetService("CollectionService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local players = game:GetService("Players")
 local camera = workspace.CurrentCamera
 local plr = players.LocalPlayer
@@ -12,12 +13,10 @@ local mouse = plr:GetMouse()
 
 mouse.TargetFilter = workspace.Walls
 
-local sharedFolder = game.ReplicatedStorage.Shared
-
-local buildEvent = sharedFolder.Remotes.BuildEvent
-local enoughCashRemote = sharedFolder.Remotes.EnoughCash
-local enoughEnergyRemote = sharedFolder.Remotes.EnoughEnergy
-local isLimitRemote = sharedFolder.Remotes.IsLimit
+local buildEvent = ReplicatedStorage.Remotes.BuildEvent
+local enoughCashRemote = ReplicatedStorage.Remotes.EnoughCash
+local enoughEnergyRemote = ReplicatedStorage.Remotes.EnoughEnergy
+local isLimitRemote = ReplicatedStorage.Remotes.IsLimit
 
 local currentRotation = 0
 local placementConn = nil
@@ -197,7 +196,7 @@ function PlacementManager.Start(buildingName)
 
 	currentData = data
 
-	local buildingModel = game.ReplicatedStorage.Shared.Assets.Models.BuildingModels:FindFirstChild(buildingName)
+	local buildingModel = game.ReplicatedStorage.Assets.Models.BuildingModels:FindFirstChild(buildingName)
 	if not buildingModel then
 		return
 	end
@@ -210,7 +209,7 @@ function PlacementManager.Start(buildingName)
 			oldVisual:Destroy()
 		end
 
-		local rangeVisual = game.ReplicatedStorage.Shared.Assets.UI.RangeVisual:Clone()
+		local rangeVisual = game.ReplicatedStorage.Assets.UI.RangeVisual:Clone()
 
 		rangeVisual.Size = Vector3.new(data.Range * 2, 0.001, data.Range * 2)
 		rangeVisual.Parent = currentClone
@@ -297,6 +296,7 @@ function PlacementManager.Place()
 		GuiManager.BuildingEnd()
 		return true
 	end
+	return false
 end
 
 -- 3. İptal Et (E tuşuna basıldığında veya işlem bittiğinde)

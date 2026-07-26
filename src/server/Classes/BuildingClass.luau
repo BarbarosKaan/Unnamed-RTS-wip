@@ -15,7 +15,7 @@ local modules = server.Modules
 local classes = server.Classes
 
 --// Remotelar
-local events = sharedFolder.Remotes
+local events = ReplicatedStorage.Remotes
 local removeSelectionEvent = events.RemoveSelectionEvent
 local castleDestroyed = events.CastleDestroyed
 
@@ -26,7 +26,8 @@ local gameManager = require(modules.GameManager)
 local unitClass = require(classes.UnitClass)
 
 --// Assets
-local uiAssets = sharedFolder.Assets.UI
+local uiAssets = ReplicatedStorage.Assets.UI
+local modelAssets = ReplicatedStorage.Assets.Models
 
 --=========================================
 
@@ -221,7 +222,7 @@ function building.New(buildingType, owner, model, zone)
 	self.Type = buildingData[buildingType]
 	self.Model = model
 	self.Owner = owner -- owner nil gelebilir (Sahipsiz Bina)
-	self.Health = self.Type.MaxHealth
+	self.Health = math.floor(self.Type.MaxHealth * 0.1)
 	self.BuildProgress = 0
 	self.IsBuilt = false
 	self.Queue = {}
@@ -489,6 +490,8 @@ function building:BuildingFinish()
 
 	self.IsBuilt = true
 	self.Model:FindFirstChild("Built").Value = true
+	self.Health = self.Type.MaxHealth
+	self:Heal(0)
 
 	local buildingProgress = self.Model.PrimaryPart:FindFirstChild("BuildingProgress")
 	if buildingProgress then
@@ -651,7 +654,7 @@ function building:Spawn(unit)
 
 	table.remove(self.Queue, 1)
 
-	local modelTemplate = ReplicatedStorage.Shared.Assets.Models.UnitModels:FindFirstChild(unitInfo.Name)
+	local modelTemplate = modelAssets.UnitModels:FindFirstChild(unitInfo.Name)
 	if not modelTemplate then
 		return
 	end
@@ -1001,8 +1004,12 @@ function building:TakeDamage(amount)
 	local healthBar = self.Model.PrimaryPart:FindFirstChild("HealthBar")
 	if healthBar then
 		local healthLabel = healthBar.Frame.HealthLabel
-		healthBar.Frame.Fill.Size = UDim2.fromScale(self.Health / self.Type.MaxHealth, 1)
-		healthLabel.Text = math.floor(self.Health) .. "/" .. self.Type.MaxHealth
+		local maxHealth = self.Type.MaxHealth
+		if not self.IsBuilt then
+			maxHealth = math.floor(maxHealth * 0.1)
+		end
+		healthBar.Frame.Fill.Size = UDim2.fromScale(self.Health / maxHealth, 1)
+		healthLabel.Text = math.floor(self.Health) .. "/" .. maxHealth
 		if not healthBar.Enabled then
 			healthBar.Enabled = true
 		end
