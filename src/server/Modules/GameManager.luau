@@ -6,7 +6,7 @@ local activeBuildings = {}
 local activeAll = {}
 
 ----------------------------------------
--- KAYIT ETME FONKSİYONLARI (Setters)
+-- REGISTRATION FUNCTIONS
 ----------------------------------------
 function manager.RegisterUnit(unitModel, unitObject)
 	activeUnits[unitModel] = unitObject
@@ -41,7 +41,7 @@ function manager.UnregisterBuilding(buildingModel)
 end
 
 ----------------------------------------
--- ERİŞİM FONKSİYONLARI (Getters)
+-- ACCESSOR FUNCTIONS
 ----------------------------------------
 function manager.GetUnit(unitModel)
 	return activeUnits[unitModel]
@@ -51,7 +51,7 @@ function manager.GetBuilding(buildingModel)
 	return activeBuildings[buildingModel]
 end
 
--- Tüm binaları veya askerleri toplu almak istersen (Örn: Yapay zeka hedef ararken)
+-- Retrieve all buildings or units in one place when needed.
 function manager.GetAllBuildings()
 	return activeBuildings
 end

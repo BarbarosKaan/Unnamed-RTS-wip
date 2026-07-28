@@ -9,33 +9,33 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Modules = StarterPlayerScripts.Client:WaitForChild("Modules")
 local Remotes = ReplicatedStorage:WaitForChild("Remotes")
 
--- Farenin görünmez duvarları yok sayması için filtre (Klasör adı: Walls)
+-- Ignore invisible walls for mouse raycasting.
 mouse.TargetFilter = workspace:WaitForChild("Walls")
 
--- Modüller
+-- Load the gameplay modules.
 local SelectionManager = require(Modules.SelectionManager)
 local VisualManager = require(Modules.VisualManager)
 local GuiManager = require(Modules.GuiManager)
 
--- Uzak Etkinlikler (Remotes)
+-- Remote events used for unit actions.
 local moveEvent = Remotes.MoveEvent
 local removeSelectionEvent = Remotes.RemoveSelectionEvent
 local interactEvent = Remotes.InteractEvent
 
 local unitsFolder = workspace:WaitForChild("Units")
 
--- Sürükleme ve Hover Değişkenleri
+-- Drag and hover state variables.
 local currentHoveredUnit = nil
 local selectionBox = plr.PlayerGui:WaitForChild("ScreenGui").SelectionBox
 local dragStart = nil
 local isDragging = false
 local DRAG_THRESHOLD = 20
 
---- ==========================================
---- YARDIMCI FONKSİYONLAR (UTILITIES)
---- ==========================================
+--- ------------------------------------------
+--- HELPER FUNCTIONS
+--- ------------------------------------------
 
--- Seçim kutusunun ekrandaki boyutunu ve pozisyonunu günceller
+-- Update the selection box size and position on screen.
 local function updateSelectionBox(from, to)
 	local minX, minY = math.min(from.X, to.X), math.min(from.Y, to.Y)
 	local maxX, maxY = math.max(from.X, to.X), math.max(from.Y, to.Y)
@@ -43,7 +43,7 @@ local function updateSelectionBox(from, to)
 	selectionBox.Size = UDim2.fromOffset(maxX - minX, maxY - minY)
 end
 
--- Sürükleme kutusunun içindeki oyuncuya ait üniteleri bulur
+-- Find player-owned units inside the drag selection box.
 local function getUnitsInBox(from, to)
 	local minX, minY = math.min(from.X, to.X), math.min(from.Y, to.Y)
 	local maxX, maxY = math.max(from.X, to.X), math.max(from.Y, to.Y)
@@ -80,15 +80,15 @@ local function getCenterOfUnits(selectedUnits)
 		totalPosition = totalPosition + unit.PrimaryPart.Position
 	end
 
-	-- Ortalamasını alarak tam merkez koordinatı buluyoruz
+	-- Calculate the center point from the selected units.
 	return totalPosition / count
 end
 
---- ==========================================
---- GİRDİ MANTIKSAL FONKSİYONLARI (INPUT LOGIC)
---- ==========================================
+--- ------------------------------------------
+--- INPUT LOGIC
+--- ------------------------------------------
 
--- Fare hareket ettikçe sürükleme kutusunu büyütür/küçültür
+-- Expand or shrink the selection box as the mouse moves.
 local function handleDragMovement(input)
 	if (input.Position - dragStart).Magnitude > DRAG_THRESHOLD then
 		isDragging = true
@@ -97,7 +97,7 @@ local function handleDragMovement(input)
 	end
 end
 
--- Fare bir ünitenin üzerine geldiğinde (Hover) efektleri yönetir
+-- Manage hover effects when the cursor is over a unit.
 local function handleUnitHover()
 	local target = mouse.Target and mouse.Target:FindFirstAncestorOfClass("Model")
 	local foundUnit = nil
@@ -121,7 +121,7 @@ local function handleUnitHover()
 	end
 end
 
--- Sürükleyerek çoklu ünite seçimini tamamlar
+-- Finish multi-unit selection after dragging.
 local function finishBoxSelection(input)
 	selectionBox.Visible = false
 	SelectionManager.ClearAll()
@@ -130,20 +130,19 @@ local function finishBoxSelection(input)
 	end
 end
 
--- Tek bir üniteye tıklama veya boş yere tıklayıp hareket emri verme mantığı
-local function handleSingleClickOrMove(isCtrl)
+-- Handle single-click selection and move orders on empty ground.
+local function handleSingleClickOrMove(isShift)
 	local target = mouse.Target and mouse.Target:FindFirstAncestorOfClass("Model")
 
-	-- Eğer oyuncu kendi ünitesine tıkladıysa seç/bırak
+	-- Select or deselect the clicked owned unit.
 	if target and target:FindFirstChild("Owner") and target.Owner.Value == plr then
-		if not isCtrl then
+		if not isShift then
 			SelectionManager.ClearAll()
 		end
 		SelectionManager.SelectUnit(target)
 
-		-- Eğer boş bir yere tıklandıysa ve seçili ünite varsa hareket ettir
+		-- Move the selected units to the clicked position.
 	elseif mouse.Hit and #SelectionManager.SelectedUnits > 0 then
-		local ctrl = UIS:IsKeyDown(Enum.KeyCode.LeftControl) or UIS:IsKeyDown(Enum.KeyCode.RightControl)
 		local pos = mouse.Hit.Position
 
 		VisualManager.ClickEffect()
@@ -155,18 +154,18 @@ local function handleSingleClickOrMove(isCtrl)
 				local finalUnitTarget = pos
 
 				if currentCenter then
-					-- Birimin merkeze göre olan orijinal X ve Z farkını buluyoruz
+					-- Calculate the unit's original offset from the group center.
 					local offset = unit.PrimaryPart.Position - currentCenter
-					if offset.Magnitude > 10 then
-						offset = offset.Unit * 5 -- 5 birime düşür
+					if offset.Magnitude > 5 then
+						offset = offset.Unit * 2
 					end
 					local targetOffset = Vector3.new(offset.X, 0, offset.Z)
 
-					-- Yeni Hedef = Tıklanan yer + Birimin orijinal ofseti
+					-- Set the new target as the clicked point plus the unit's original offset.
 					finalUnitTarget = pos + targetOffset
 				end
 
-				if ctrl then
+				if isShift then
 					VisualManager.AddWaypoint(unit, finalUnitTarget)
 					moveEvent:FireServer(unit, { finalUnitTarget }, false)
 				else
@@ -179,14 +178,14 @@ local function handleSingleClickOrMove(isCtrl)
 	end
 end
 
--- Seçili tüm ünitelerin etkileşime (Q yeteneği/aksiyonu) geçmesini sağlar
+-- Send an interaction command to all selected units.
 local function handleUnitInteraction()
 	for _, unit in ipairs(SelectionManager.SelectedUnits) do
 		interactEvent:FireServer(unit)
 	end
 end
 
---Sağ Clickle Menüleri Aç
+-- Toggle the spawn menu with a right-click on a building.
 local function handleRightClick()
 	local target = mouse.Target and mouse.Target:FindFirstAncestorOfClass("Model")
 
@@ -206,11 +205,11 @@ local function handleRightClick()
 	end
 end
 
---- ==========================================
---- EVENT LISTENERS (BAĞLANTILAR)
---- ==========================================
+--- ------------------------------------------
+--- EVENT LISTENERS
+--- ------------------------------------------
 
--- Sunucudan gelen ünite silme talebi
+-- Handle unit removal requests from the server.
 removeSelectionEvent.OnClientEvent:Connect(function(unit)
 	if not unit then
 		return
@@ -222,7 +221,7 @@ removeSelectionEvent.OnClientEvent:Connect(function(unit)
 	SelectionManager.DeselectUnit(unit)
 end)
 
--- Girdi Başlangıcı (Tıklama veya Tuşa Basma)
+-- Handle input start events such as clicks and key presses.
 UIS.InputBegan:Connect(function(input, gameProcessed)
 	if gameProcessed then
 		return
@@ -236,7 +235,7 @@ UIS.InputBegan:Connect(function(input, gameProcessed)
 	end
 end)
 
--- Girdi Değişimi (Fareyi Oynatma)
+-- Handle mouse movement and hover updates.
 UIS.InputChanged:Connect(function(input)
 	if input.UserInputType == Enum.UserInputType.MouseMovement then
 		if dragStart then
@@ -246,7 +245,7 @@ UIS.InputChanged:Connect(function(input)
 	end
 end)
 
--- Girdi Bitişi (Tıklamayı Bırakma)
+-- Handle input release events.
 UIS.InputEnded:Connect(function(input, gameProcessed)
 	if gameProcessed then
 		return
@@ -256,8 +255,8 @@ UIS.InputEnded:Connect(function(input, gameProcessed)
 		if isDragging then
 			finishBoxSelection(input)
 		else
-			local isCtrlPressed = UIS:IsKeyDown(Enum.KeyCode.LeftControl) or UIS:IsKeyDown(Enum.KeyCode.RightControl)
-			handleSingleClickOrMove(isCtrlPressed)
+			local isShiftPressed = UIS:IsKeyDown(Enum.KeyCode.LeftShift) or UIS:IsKeyDown(Enum.KeyCode.RightShift)
+			handleSingleClickOrMove(isShiftPressed)
 		end
 		dragStart, isDragging = nil, false
 	elseif input.KeyCode == Enum.KeyCode.Q then

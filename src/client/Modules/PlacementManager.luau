@@ -23,6 +23,7 @@ local placementConn = nil
 local currentClone = nil
 local currentData = nil
 
+-- Validate whether the current building can be placed at the target location.
 local function checkPlacementStatus()
 	if not currentClone or not currentData then
 		return nil, false, nil
@@ -175,11 +176,12 @@ local function checkPlacementStatus()
 	return targetPosition, false, nil
 end
 
+-- Connect the placement manager to the GUI module.
 function PlacementManager.Init(modules)
 	GuiManager = modules.GuiManager
 end
 
--- 1. Yerleştirmeyi Başlat
+-- Start a new placement session for the selected building.
 function PlacementManager.Start(buildingName)
 	if placementConn then
 		return
@@ -202,6 +204,12 @@ function PlacementManager.Start(buildingName)
 	end
 
 	currentClone = buildingModel:Clone()
+
+	for _, part in pairs(currentClone:GetDescendants()) do
+		if part ~= currentClone.PrimaryPart then
+			part:Destroy()
+		end
+	end
 
 	if data.Range then
 		local oldVisual = currentClone:FindFirstChild("RangeVisual")
@@ -227,7 +235,7 @@ function PlacementManager.Start(buildingName)
 	end
 
 	for _, v in pairs(currentClone:GetDescendants()) do
-		if v:IsA("BasePart") and v.Name ~= "Primary" and v.Name ~= "Range" and v.Name ~= "RangeVisual" then
+		if v:IsA("BasePart") and v.Name ~= "Range" and v.Name ~= "RangeVisual" then
 			v.Anchored = true
 			v.Transparency = 0.5
 			v.CanCollide = false
@@ -238,7 +246,7 @@ function PlacementManager.Start(buildingName)
 
 	GuiManager.BuildingStart()
 
-	-- Her karede binayı farenin ucuna taşı ve çakışma rengini ayarla
+	-- Move the preview building with the mouse each frame and update its color.
 	placementConn = runService.RenderStepped:Connect(function()
 		local targetPosition, isColliding, msg = checkPlacementStatus()
 
@@ -249,7 +257,7 @@ function PlacementManager.Start(buildingName)
 
 			local color = isColliding and BrickColor.new("Really red") or BrickColor.new("Lime green")
 			for _, part in pairs(currentClone:GetDescendants()) do
-				if part:IsA("BasePart") and part.Name ~= "Primary" and part.Name ~= "RangeVisual" then
+				if part:IsA("BasePart") and part.Name ~= "RangeVisual" then
 					part.BrickColor = color
 				end
 			end
@@ -259,7 +267,7 @@ function PlacementManager.Start(buildingName)
 	currentClone.Parent = workspace
 end
 
--- 2. Binayı Yerleştir (Tıklandığında)
+-- Place the building on the current valid position.
 function PlacementManager.Place()
 	if not placementConn or not currentClone then
 		return
@@ -299,7 +307,7 @@ function PlacementManager.Place()
 	return false
 end
 
--- 3. İptal Et (E tuşuna basıldığında veya işlem bittiğinde)
+-- Cancel the active placement session and clean up the preview.
 function PlacementManager.Cancel()
 	if placementConn then
 		placementConn:Disconnect()
@@ -314,11 +322,12 @@ function PlacementManager.Cancel()
 	currentRotation = 0
 end
 
+-- Rotate the preview building by 15 degrees.
 function PlacementManager.Rotate()
 	currentRotation += 15
 end
 
--- Şu an bir şey yerleştiriyor muyuz kontrolü
+-- Return whether a building placement session is currently active.
 function PlacementManager.IsPlacing()
 	return placementConn ~= nil
 end

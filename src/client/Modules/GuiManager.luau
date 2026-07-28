@@ -73,6 +73,7 @@ local stayButton = infoFrame:WaitForChild("StayButton")
 local isCooldown = false
 local lastCooldownThread = nil
 
+-- Prevent rapid repeated clicks from triggering duplicate actions.
 local function startCooldown()
 	if lastCooldownThread then
 		task.cancel(lastCooldownThread)
@@ -84,6 +85,7 @@ local function startCooldown()
 	end)
 end
 
+-- Check whether the UI is currently in a cooldown state.
 local function ifCooldown()
 	if isCooldown then
 		GuiManager.NewRedNotification("You're clicking too fast")
@@ -92,6 +94,7 @@ local function ifCooldown()
 	return false
 end
 
+-- Process the spawn queue for a building in order.
 local function processQueue(buildingModel)
 	local data = connectedGuis[buildingModel]
 	local currentBuildingData = buildingData[buildingModel.Name]
@@ -118,6 +121,7 @@ local function processQueue(buildingModel)
 	end
 end
 
+-- Count how many selected units match a given name.
 local function checkUnitAmount(checkFor, Table)
 	local amt
 	for _, unit in ipairs(Table) do
@@ -129,6 +133,7 @@ local function checkUnitAmount(checkFor, Table)
 	return amt
 end
 
+-- Clear the current selection UI and labels.
 local function clearSelecteds()
 	for _, child in ipairs(selectedsFrame:GetChildren()) do
 		if child:IsA("Frame") then
@@ -141,22 +146,27 @@ local function clearSelecteds()
 	interactButton.Visible = false
 end
 
+-- Update the cash display when the value changes.
 local function onCashChanged(cash)
 	cashLabel.Text = cash.Value .. "$"
 end
 
+-- Update the cash-per-minute display when it changes.
 local function onCPMChanged(cpm)
 	cpmLabel.Text = cpm.Value .. " Cash/Min"
 end
 
+-- Update the energy display when the value or cap changes.
 local function onEnergyChanged(energy, eLimit)
 	energyLabel.Text = energy.Value .. "/" .. eLimit.Value
 end
 
+-- Update the population display when the value or cap changes.
 local function onPopulationChanged(population, pLimit)
 	populationLabel.Text = population.Value .. "/" .. pLimit.Value
 end
 
+-- Initialize the GUI manager and bind its event handlers.
 function GuiManager.Init(modules)
 	SelectionManager = modules.SelectionManager
 
@@ -254,6 +264,7 @@ function GuiManager.Init(modules)
 	HUD.Visible = true
 end
 
+-- Create building buttons from the shared building data.
 function GuiManager.SetupBuildingButtons(currentFrame)
 	for _, building in pairs(buildingData) do
 		if building.NotBuildable then
@@ -295,6 +306,7 @@ function GuiManager.SetupBuildingButtons(currentFrame)
 	return buttons
 end
 
+-- Show a short red notification in the HUD.
 function GuiManager.NewRedNotification(text)
 	local notification = redNotification:Clone()
 	notification.Visible = true
@@ -306,6 +318,7 @@ function GuiManager.NewRedNotification(text)
 	return
 end
 
+-- Show a short green notification in the HUD.
 function GuiManager.NewGreenNotification(text)
 	local notification = greenNotification:Clone()
 	notification.Visible = true
@@ -316,10 +329,12 @@ function GuiManager.NewGreenNotification(text)
 	return
 end
 
+-- Check whether the spawn UI for a building is currently visible.
 function GuiManager.IsSpawnGuiOpen(buildingModel)
 	return connectedGuis[buildingModel] and connectedGuis[buildingModel].Gui.Enabled
 end
 
+-- Open the spawn UI for a building that can produce units.
 function GuiManager.OpenSpawnGui(buildingModel)
 	if not table.find(buildingData[buildingModel.Name].Behaviour, "Spawn") then
 		return
@@ -458,6 +473,7 @@ function GuiManager.OpenSpawnGui(buildingModel)
 	end
 end
 
+-- Hide the spawn UI for a building.
 function GuiManager.CloseSpawnGui(buildingModel)
 	if not table.find(buildingData[buildingModel.Name].Behaviour, "Spawn") then
 		return
@@ -467,6 +483,7 @@ function GuiManager.CloseSpawnGui(buildingModel)
 	end
 end
 
+-- Close every active spawn UI.
 function GuiManager.CloseAllSpawnGuis()
 	for _, data in pairs(connectedGuis) do
 		data.Gui.Enabled = false
@@ -474,7 +491,7 @@ function GuiManager.CloseAllSpawnGuis()
 end
 
 function GuiManager.SelectNew(newSelected, allSelecteds)
-	-- Önce eski ikonların hepsini temizleyelim ki üst üste binmesinler
+	-- Clear old selection icons first to avoid overlap.
 	clearSelecteds()
 
 	selectionContainer.Visible = true
@@ -532,7 +549,7 @@ function GuiManager.SelectNew(newSelected, allSelecteds)
 			end
 		end
 	else
-		-- Sadece tek bir eleman seçiliyse
+		-- Show the single selected unit details.
 		selectedName.Text = newSelected.Name
 
 		local data = unitData[newSelected.Name]
@@ -574,6 +591,7 @@ function GuiManager.SelectNew(newSelected, allSelecteds)
 	end
 end
 
+-- Update the selection UI after removing one selected unit.
 function GuiManager.Deselect(deselected, allSelecteds)
 	selectedAmount.Text = "x" .. #allSelecteds
 	if #allSelecteds == 0 then
@@ -598,6 +616,7 @@ function GuiManager.Deselect(deselected, allSelecteds)
 	end
 end
 
+-- Show hover info and track the cursor while the unit is highlighted.
 function GuiManager.HoverStart(unit)
 	if lastRSConn then
 		lastRSConn:Disconnect()
@@ -623,12 +642,14 @@ function GuiManager.HoverStart(unit)
 	hoverInfo.Visible = true
 end
 
+-- Hide the hover info panel.
 function GuiManager.HoverEnd()
 	hoverInfo.Visible = false
 	lastRSConn:Disconnect()
 	lastRSConn = nil
 end
 
+-- Show the placement overlay when a building is being placed.
 function GuiManager.BuildingStart()
 	buildingPlacing.Visible = true
 	for w, instance in lastWarning do
@@ -637,6 +658,7 @@ function GuiManager.BuildingStart()
 	end
 end
 
+-- Move the placement marker to the current mouse position.
 function GuiManager.BuildingNewPos(pos, warning)
 	if not pos then
 		return
@@ -662,6 +684,7 @@ function GuiManager.BuildingNewPos(pos, warning)
 	end
 end
 
+-- Hide the placement overlay when building placement is finished.
 function GuiManager.BuildingEnd()
 	buildingPlacing.Visible = false
 	for w, instance in lastWarning do

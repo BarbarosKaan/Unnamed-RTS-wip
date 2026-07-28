@@ -7,13 +7,13 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local CollectionService = game:GetService("CollectionService")
 local TweenService = game:GetService("TweenService")
 
---// Değişkenler
+--// Variables
 local sharedFolder = ReplicatedStorage.Shared
 local dataFolder = sharedFolder.Data
 local server = ServerScriptService.Server
 local modules = server.Modules
 
---// Modüller
+--// Modules
 local unitData = require(dataFolder.UnitData)
 local gameManager = require(modules.GameManager)
 
@@ -206,7 +206,7 @@ function unit:AddOwner(newOwner)
 		return
 	end
 
-	-- Eski sahibinin nüfus limitinden düş
+	-- Reduce the old owner's population limit.
 	if self.Owner then
 		unit.removePopulation(self.Owner, self.Type.Space)
 	end
@@ -214,24 +214,24 @@ function unit:AddOwner(newOwner)
 	self.Owner = newOwner
 	self.TeamData = newOwner and newOwner.Team or nil
 
-	-- Model etiketini güncelle
+	-- Update the model ownership tag.
 	if self.Model and self.Model:FindFirstChild("Owner") then
 		self.Model.Owner.Value = newOwner
 	end
 
-	-- Yeni sahibin nüfus limitine ekle
+	-- Add the new owner's population capacity.
 	unit.addPopulation(newOwner, self.Type.Space)
 
-	-- Renk ve lazer güncellemeleri
+	-- Update color and laser visuals.
 	self:ApplyTeamColor()
 
-	-- İnşa lazerinin rengini güncelle (Eğer inşa birimiyse)
+	-- Update the build beam color if this is a builder unit.
 	local buildBeam = self.Model and self.Model:FindFirstChild("Beam")
 	if buildBeam and newOwner then
 		buildBeam.Color = ColorSequence.new(newOwner.TeamColor.Color)
 	end
 
-	-- Hedefleri sıfırla
+	-- Reset targets.
 	self.unitsInRange = {}
 end
 
@@ -261,7 +261,7 @@ function unit:ApplyTeamColor()
 		return
 	end
 
-	-- Sahibi varsa takım rengi, yoksa koyu gri (tarafsız/yabanıl)
+	-- Use team color when owned, otherwise use dark gray for neutral or wild units.
 	local color = self.Owner and self.Owner.TeamColor or BrickColor.new("Dark stone grey")
 
 	for _, part in pairs(self.Model.ColorParts:GetDescendants()) do
@@ -278,10 +278,10 @@ function unit:Setup()
 	local primaryPart = model.PrimaryPart
 	local maxHealth = self.Type.MaxHealth
 
-	-- Değer Etiketleri (Value Objects)
+	-- Value objects for ownership and state.
 	local ownerValue = Instance.new("ObjectValue")
 	ownerValue.Name = "Owner"
-	ownerValue.Value = self.Owner -- Sahipsizse nil kalır
+	ownerValue.Value = self.Owner -- Remains nil if the unit is neutral.
 	ownerValue.Parent = model
 
 	local tv = Instance.new("StringValue")
@@ -293,14 +293,14 @@ function unit:Setup()
 	att.Name = "Attachment"
 	att.Parent = primaryPart
 
-	-- UI Kurulumu
+	-- UI setup.
 	local healthBar = uiAssets.HealthBar:Clone()
 	healthBar.Size = UDim2.fromScale(1 + maxHealth * 0.05, 1)
 	healthBar.Parent = primaryPart
 	healthBar.Frame.Fill.Size = UDim2.fromScale(self.Health / self.Type.MaxHealth, 1)
 	healthBar.Enabled = false
 
-	-- Humanoid Kurulumu
+	-- Humanoid setup.
 	local humanoid = modelAssets.Humanoid:Clone()
 	if self.Type.Flying == true then
 		humanoid.HipHeight = 8
@@ -309,7 +309,7 @@ function unit:Setup()
 	humanoid.Parent = model
 	humanoid.WalkSpeed = self.Type.Speed
 
-	-- Seçim Halkası
+	-- Selection ring.
 	local selectPart = Instance.new("Part")
 	selectPart.Name = "SelectionPart"
 	selectPart.Shape = Enum.PartType.Cylinder
@@ -359,7 +359,7 @@ function unit:Setup()
 	alignOrientation.Parent = model
 	alignOrientation.Enabled = false
 
-	-- Sistemleri Aktifleştir
+	-- Activate the supporting systems.
 	self:Optimize()
 	self:SetupRange()
 
@@ -468,7 +468,7 @@ function unit:SetupRange()
 				local targetOwner = otherUnit.Owner
 				local targetType = typeObj.Value
 
-				-- DÜŞMAN KONTROLÜ (Tüm düşman target'ları için ortak temiz mantık)
+				-- Enemy detection logic for all hostile targets.
 				local isEnemy = false
 
 				if self.Owner == nil then
@@ -566,7 +566,7 @@ function unit:Bullet(endPos)
 	beam.TextureSpeed = 0
 	beam.Width0 = 0.6
 	beam.Width1 = 0.6
-	beam.Color = ColorSequence.new(self.Owner and self.Owner.TeamColor.Color or Color3.fromRGB(255, 65, 65)) -- Sahipsizse kırmızımsı lazer atar
+	beam.Color = ColorSequence.new(self.Owner and self.Owner.TeamColor.Color or Color3.fromRGB(255, 65, 65)) -- Neutral units use a reddish laser by default.
 	beam.Parent = bulletPart
 	beam.FaceCamera = true
 
@@ -631,7 +631,7 @@ function unit:SetupAttack()
 								u ~= target
 								and model
 								and model.PrimaryPart
-								and u.Owner ~= self.Owner -- Sahipsizken dostu olmadığı için splash hasarı herkese verir
+								and u.Owner ~= self.Owner -- Neutral units take splash damage because they are not allied.
 								and (model.PrimaryPart.Position - explosionCenter).Magnitude
 									<= self.Type.SplashRadius
 							then

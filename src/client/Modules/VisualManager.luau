@@ -1,9 +1,10 @@
 local VisualManager = {}
 local beamSegments = {}
 
--- Click efekti
+-- Visual feedback for click interactions.
 local clickAtt = game.ReplicatedStorage.Assets.Effects.ClickAttachment
 
+-- Add a highlight box around a model.
 function VisualManager.AddHighlight(model)
 	if not model.PrimaryPart then
 		return
@@ -15,6 +16,7 @@ function VisualManager.AddHighlight(model)
 	highlight.Adornee = model.PrimaryPart
 end
 
+-- Remove the highlight box from a model.
 function VisualManager.RemoveHighlight(model)
 	if not model then
 		return
@@ -25,6 +27,7 @@ function VisualManager.RemoveHighlight(model)
 	end
 end
 
+-- Make the selection part visible for a selected model.
 function VisualManager.AddSelectionBox(model)
 	if not model then
 		return
@@ -35,6 +38,7 @@ function VisualManager.AddSelectionBox(model)
 	end
 end
 
+-- Hide the selection part for a deselected model.
 function VisualManager.RemoveSelectionBox(model)
 	if not model then
 		return
@@ -45,6 +49,7 @@ function VisualManager.RemoveSelectionBox(model)
 	end
 end
 
+-- Clear any waypoint beam visuals attached to a model.
 function VisualManager.ClearBeams(model)
 	if beamSegments[model] then
 		for _, data in ipairs(beamSegments[model]) do
@@ -60,6 +65,7 @@ function VisualManager.ClearBeams(model)
 	end
 end
 
+-- Create a movement waypoint beam for a moving unit.
 function VisualManager.AddWaypoint(model, pos)
 	local plr = game.Players.LocalPlayer
 	local moveAtt = model.PrimaryPart:FindFirstChild("Attachment")
@@ -122,6 +128,7 @@ function VisualManager.AddWaypoint(model, pos)
 	end)
 end
 
+-- Spawn a short-lived click effect at the current mouse position.
 function VisualManager.ClickEffect()
 	local plr = game.Players.LocalPlayer
 	local mouse = plr:GetMouse()

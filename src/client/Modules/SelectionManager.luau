@@ -5,15 +5,18 @@ local GuiManager
 
 SelectionManager.SelectedUnits = {}
 
+-- Initialize the selection manager and wire it to the supporting modules.
 function SelectionManager.Init(modules)
 	VisualManager = modules.VisualManager
 	GuiManager = modules.GuiManager
 end
 
+-- Return whether a model is currently selected.
 function SelectionManager.IsSelected(model)
 	return table.find(SelectionManager.SelectedUnits, model) ~= nil
 end
 
+-- Add a unit to the current selection list.
 function SelectionManager.SelectUnit(model)
 	if not model or SelectionManager.IsSelected(model) then
 		return
@@ -24,6 +27,7 @@ function SelectionManager.SelectUnit(model)
 	VisualManager.AddSelectionBox(model)
 end
 
+-- Remove a unit from the current selection list.
 function SelectionManager.DeselectUnit(model)
 	if not model then
 		return
@@ -39,12 +43,14 @@ function SelectionManager.DeselectUnit(model)
 	VisualManager.RemoveSelectionBox(model)
 end
 
+-- Clear the full current selection.
 function SelectionManager.ClearAll()
 	for _, unit in ipairs(table.clone(SelectionManager.SelectedUnits)) do
 		SelectionManager.DeselectUnit(unit)
 	end
 end
 
+-- Apply hover visuals to a unit.
 function SelectionManager.HoverStart(model)
 	if not model then
 		return
@@ -58,6 +64,7 @@ function SelectionManager.HoverStart(model)
 	VisualManager.AddHighlight(model)
 end
 
+-- Remove hover visuals from a unit.
 function SelectionManager.HoverEnd(model)
 	if not model then
 		return
@@ -71,6 +78,7 @@ function SelectionManager.HoverEnd(model)
 	VisualManager.RemoveHighlight(model)
 end
 
+-- Return all selected units that match a given name.
 function SelectionManager.GetAllOfName(name)
 	local results = {}
 	for _, unit in ipairs(SelectionManager.SelectedUnits) do

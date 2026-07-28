@@ -7,7 +7,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local CollectionService = game:GetService("CollectionService")
 local TweenService = game:GetService("TweenService")
 
---// Değişkenler
+--// Variables
 local sharedFolder = ReplicatedStorage.Shared
 local data = sharedFolder.Data
 local server = ServerScriptService.Server
@@ -19,7 +19,7 @@ local events = ReplicatedStorage.Remotes
 local removeSelectionEvent = events.RemoveSelectionEvent
 local castleDestroyed = events.CastleDestroyed
 
---// Modüller
+--// Modules
 local buildingData = require(data.BuildingData)
 local unitData = require(data.UnitData)
 local gameManager = require(modules.GameManager)
@@ -188,7 +188,7 @@ end
 function building.isEnergyEnough(owner, energyCost)
 	if not owner then
 		return true
-	end -- Sahipsiz binalar enerji sınırı tanımaz
+	end -- Neutral buildings do not have energy limits
 	local currentEnergy = getCurrentEnergy(owner)
 	if not currentEnergy then
 		return false
@@ -241,13 +241,13 @@ function building.New(buildingType, owner, model, zone)
 	gameManager.RegisterBuilding(model, self)
 	self:Setup()
 
-	-- Eğer sahibi varsa rengini takım rengi yap, yoksa tarafsız renk (Gri) bırak
+	-- Use team color when owned, otherwise leave the building neutral gray.
 	self:ApplyTeamColor()
 
 	if buildingType == "HQ" then
 		self:BuildingFinish()
 	else
-		-- Başlangıçta görünmezlik
+		-- Start hidden during construction.
 		for _, v in pairs(model:GetDescendants()) do
 			if v:IsA("BasePart") and v.Name ~= "Primary" and v.Name ~= "Floor" and v.Name ~= "RangeVisual" then
 				v.Transparency = 1
@@ -265,7 +265,7 @@ function building:AddOwner(newOwner)
 		return
 	end
 
-	-- Eğer eski bir sahibi varsa onun üzerindeki etkileri temizle
+	-- Remove the previous owner's effects before assigning a new owner.
 	if self.Owner then
 		removeEnergy(self.Owner, self.Type.Space)
 		if self.IsBuilt then
@@ -278,16 +278,16 @@ function building:AddOwner(newOwner)
 		end
 	end
 
-	-- Yeni sahibini ata
+	-- Assign the new owner.
 	self.Owner = newOwner
 	self.TeamData = newOwner and newOwner.Team or nil
 
-	-- Model etiketini güncelle
+	-- Update the model ownership tag.
 	if self.Model and self.Model:FindFirstChild("Owner") then
 		self.Model.Owner.Value = newOwner
 	end
 
-	-- Yeni sahibin istatistiklerini güncelle
+	-- Update the new owner's statistics.
 	addEnergy(newOwner, self.Type.Space)
 	if self.IsBuilt then
 		if table.find(self.Type.Behaviour, "AddEnergy") then
@@ -304,10 +304,10 @@ function building:AddOwner(newOwner)
 	local cpmVal = self.Owner and self.Owner:FindFirstChild("stats") and self.Owner.stats:FindFirstChild("CPM")
 	cpmVal.Value += cashPerMin
 
-	-- Takım rengini yeni sahibe göre güncelle
+	-- Update the team color based on the new owner.
 	self:ApplyTeamColor()
 
-	-- Range ve hedefleri sıfırla ki yeni dosta/düşmana göre yeniden hesaplasın
+	-- Reset range and targets so they can be recalculated for the new allies or enemies.
 	self.unitsInRange = {}
 end
 
@@ -332,7 +332,7 @@ function building:ApplyTeamColor()
 		return
 	end
 
-	-- Eğer sahip varsa takım rengi, yoksa Dark Stone Grey (Tarafsız)
+	-- Use team color when owned, otherwise use Dark Stone Grey for neutral buildings.
 	local color = self.Owner and self.Owner.TeamColor or BrickColor.new("Dark stone grey")
 
 	for _, part in pairs(self.Model.ColorParts:GetDescendants()) do
@@ -350,10 +350,10 @@ function building:Setup()
 	local floor = model:FindFirstChild("Floor")
 	local maxHealth = self.Type.MaxHealth
 
-	-- Değer Etiketleri (Value Objects)
+	-- Value objects for ownership and state.
 	local ov = Instance.new("ObjectValue")
 	ov.Name = "Owner"
-	ov.Value = self.Owner -- Sahipsiz ise nil kalır
+	ov.Value = self.Owner -- Remains nil if the building is neutral.
 	ov.Parent = model
 
 	local bv = Instance.new("BoolValue")
@@ -370,7 +370,7 @@ function building:Setup()
 	att.Name = "Attachment"
 	att.Parent = model.PrimaryPart
 
-	-- UI Kurulumları
+	-- UI setup.
 	local healthBar = uiAssets.HealthBar:Clone()
 	local size = math.min(21, 1 + maxHealth * 0.05)
 	healthBar.Size = UDim2.fromScale(size, 1)
@@ -384,7 +384,7 @@ function building:Setup()
 	buildingProgress.Adornee = model.PrimaryPart
 	buildingProgress.Enabled = true
 
-	-- Seçim Alanı Parçası (Selection Part)
+	-- Selection part for highlighting.
 	local selectPart = Instance.new("Part")
 	selectPart.Name = "SelectionPart"
 	selectPart.Shape = Enum.PartType.Block
@@ -478,7 +478,7 @@ function building:BuildingFinish()
 		self:ToggleWall()
 	end
 
-	-- Sadece sahibi varsa limitlerini yükselt
+	-- Increase limits only when the building has an owner.
 	if self.Owner then
 		if table.find(self.Type.Behaviour, "AddEnergy") then
 			upgradeMaxEnergy(self.Owner, self.Type.AddEnergy)
@@ -534,7 +534,7 @@ function building:Bullet(endPos)
 	beam.Width0 = 0.6
 	beam.Width1 = 0.6
 
-	-- Eğer sahibi varsa takım rengi lazer atar, yoksa beyaz lazer
+	-- Use team color for the laser when owned; otherwise use white.
 	beam.Color = ColorSequence.new(self.Owner and self.Owner.TeamColor.Color or Color3.fromRGB(255, 255, 255))
 	beam.Parent = bulletPart
 	beam.FaceCamera = true
@@ -569,7 +569,7 @@ function building:SetupQueue()
 				return
 			end
 
-			-- Sahipsiz bina asker üretemez (Zorunlu Owner kontrolü)
+			-- Neutral buildings cannot train units without an owner.
 			if not self.Owner then
 				progressBar.Enabled = false
 				task.wait(1)

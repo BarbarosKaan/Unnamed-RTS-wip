@@ -17,6 +17,7 @@ local buildingButtonsFrame = buildingsFrame:WaitForChild("Buttons")
 local buildingButtons = GuiManager.SetupBuildingButtons(buildingButtonsFrame)
 buildingsFrame.Visible = true
 
+-- Highlight placement zones when a building action begins.
 local function onBuildingStart(name)
 	if name == "Farm" then
 		for _, zone in pairs(farmZones:GetChildren()) do
@@ -29,6 +30,7 @@ local function onBuildingStart(name)
 	end
 end
 
+-- Reset placement zone visuals after a build action ends.
 local function onBuildingEnd()
 	for _, zone in pairs(farmZones:GetChildren()) do
 		ts:Create(zone, TweenInfo.new(0.5, Enum.EasingStyle.Linear), { Transparency = 1 }):Play()
@@ -38,7 +40,7 @@ local function onBuildingEnd()
 	end
 end
 
--- Butonlara tıklanınca yerleştirmeyi başlat
+-- Connect build buttons to start or cancel placement.
 for _, button in ipairs(buildingButtons) do
 	if button:IsA("TextButton") then
 		button.MouseButton1Click:Connect(function()
@@ -52,27 +54,27 @@ for _, button in ipairs(buildingButtons) do
 	end
 end
 
--- Klavyeden ve fareden gelen emirleri yönet
+-- Handle keyboard and mouse input while placement is active.
 UIS.InputBegan:Connect(function(input, gameProcessed)
 	if gameProcessed then
 		return
 	end
 	if not PlacementManager.IsPlacing() then
 		return
-	end -- Eğer modül aktif değilse hiçbir şey yapma
+	end
 
 	if input.KeyCode == Enum.KeyCode.E then
-		-- İptal Et
+		-- Cancel placement
 		PlacementManager.Cancel()
 		onBuildingEnd()
 	elseif input.UserInputType == Enum.UserInputType.MouseButton1 then
-		-- Yerleştir
+		-- Place the building
 		local success = PlacementManager.Place()
 		if success then
 			onBuildingEnd()
 		end
 	elseif input.KeyCode == Enum.KeyCode.R then
-		-- Döndür
+		-- Rotate the building
 		PlacementManager.Rotate()
 	end
 end)
