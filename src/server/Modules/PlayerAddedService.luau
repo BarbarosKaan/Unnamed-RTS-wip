@@ -1,3 +1,5 @@
+local PlayerAddedService = {}
+
 local ServerScriptService = game:GetService("ServerScriptService")
 local Teams = game:GetService("Teams")
 
@@ -9,8 +11,8 @@ local buildingClass = require(classes.BuildingClass)
 local unitClass = require(classes.UnitClass)
 
 local spawnPoints = {}
-
-local GAME_MODE = "1v1"
+local GAME_MODE
+local isGameStarted = false
 
 local function setCharacterCollisionGroup(character)
 	for _, descendant in ipairs(character:GetDescendants()) do
@@ -29,6 +31,7 @@ local function createTeams()
 		team1.Parent = Teams
 		team1.AutoAssignable = false
 		team1:SetAttribute("Lost", false)
+
 		local team2 = Instance.new("Team")
 		team2.Name = "Red"
 		team2.TeamColor = BrickColor.new("Really red")
@@ -43,32 +46,32 @@ local function createTeams()
 	end
 end
 
-createTeams()
+local function initializeSpawnPoints()
+	for _, object in ipairs(workspace:GetChildren()) do
+		if object.Name == "HQ" and object:IsA("Model") then
+			local hqBuilding = buildingClass.New("HQ", nil, object)
 
-for _, object in ipairs(workspace:GetChildren()) do
-	if object.Name == "HQ" and object:IsA("Model") then
-		local hqBuilding = buildingClass.New("HQ", nil, object)
+			local builderModel = game.ReplicatedStorage.Assets.Models.UnitModels.Builder:Clone()
+			builderModel.Parent = workspace.Units
+			builderModel:PivotTo(object:GetPivot() * CFrame.new(7, 0, 0))
 
-		local builderModel = game.ReplicatedStorage.Assets.Models.UnitModels.Builder:Clone()
-		builderModel.Parent = workspace.Units
-		builderModel:PivotTo(object:GetPivot() * CFrame.new(7, 0, 0))
+			local builderUnit = unitClass.New("Builder", nil, builderModel)
 
-		local builderUnit = unitClass.New("Builder", nil, builderModel)
+			local dataPacket = {
+				HQ = hqBuilding,
+				HQModel = object,
+				Builder = builderUnit,
+			}
 
-		local dataPacket = {
-			HQ = hqBuilding,
-			HQModel = object,
-			Builder = builderUnit,
-		}
-
-		local teamTag = object:FindFirstChild("Team")
-		if teamTag then
-			spawnPoints[teamTag.Value] = dataPacket
-		else
-			if not spawnPoints.Blue then
-				spawnPoints.Blue = dataPacket
+			local teamTag = object:FindFirstChild("Team")
+			if teamTag then
+				spawnPoints[teamTag.Value] = dataPacket
 			else
-				spawnPoints.Red = dataPacket
+				if not spawnPoints.Blue then
+					spawnPoints.Blue = dataPacket
+				else
+					spawnPoints.Red = dataPacket
+				end
 			end
 		end
 	end
@@ -87,9 +90,12 @@ local function assign1v1Team()
 	end
 end
 
-game.Players.PlayerAdded:Connect(function(plr)
-	local assignedTeam = assign1v1Team()
+local function onPlayerAdded(plr)
+	if not isGameStarted then
+		return
+	end
 
+	local assignedTeam = assign1v1Team()
 	if assignedTeam then
 		plr.Team = assignedTeam
 
@@ -140,8 +146,6 @@ game.Players.PlayerAdded:Connect(function(plr)
 			mySpawn.HQ:AddOwner(plr)
 			mySpawn.Builder:AddOwner(plr)
 		end
-	else
-		print(plr.Name .. " oyuna sonradan girdi ve izleyici (Neutral) olarak kaldı.")
 	end
 
 	plr.CharacterAdded:Connect(function(character)
@@ -162,12 +166,65 @@ game.Players.PlayerAdded:Connect(function(plr)
 			end
 		end)
 	end)
-end)
 
-game.Players.PlayerRemoving:Connect(function(plr)
+	if plr.Character then
+		task.spawn(function()
+			setCharacterCollisionGroup(plr.Character)
+			if plr.Team and spawnPoints[plr.Team.Name] then
+				local myHQModel = spawnPoints[plr.Team.Name].HQModel
+				if myHQModel and myHQModel.PrimaryPart then
+					plr.Character:PivotTo(myHQModel:GetPivot() * CFrame.new(0, 10, 0))
+				end
+			end
+		end)
+	end
+end
+
+local function onPlayerRemoving(plr)
 	for _, unit in pairs(gameManager.GetEverything()) do
 		if unit.Owner == plr then
 			unit:RemoveOwner()
 		end
 	end
-end)
+end
+
+function PlayerAddedService.Init(_serverController)
+	GAME_MODE = _serverController:GetGameMode()
+
+	createTeams()
+
+	game.Players.PlayerAdded:Connect(function(plr)
+		if not isGameStarted then
+			print(plr.Name .. " joined the lobby; waiting for game start")
+			return
+		end
+		onPlayerAdded(plr)
+	end)
+
+	game.Players.PlayerRemoving:Connect(onPlayerRemoving)
+
+	for _, plr in ipairs(game.Players:GetPlayers()) do
+		task.spawn(function()
+			if isGameStarted then
+				onPlayerAdded(plr)
+			end
+		end)
+	end
+end
+
+function PlayerAddedService.Start()
+	isGameStarted = true
+	print("Game started; assigning players")
+	initializeSpawnPoints()
+	for _, plr in ipairs(game.Players:GetPlayers()) do
+		task.spawn(function()
+			onPlayerAdded(plr)
+		end)
+	end
+end
+
+function PlayerAddedService.Stop()
+	isGameStarted = false
+end
+
+return PlayerAddedService

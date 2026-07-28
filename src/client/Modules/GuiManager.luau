@@ -29,7 +29,7 @@ local notificationEvent = remotes.NotificationEvent
 local endScreenEvent = remotes.EndScreenEvent
 
 local iconTemplate = guiAssets:WaitForChild("IconTemplate")
-local selectionContainer = plr:WaitForChild("PlayerGui"):WaitForChild("ScreenGui"):WaitForChild("SelectedInfo")
+local selectionContainer = plr:WaitForChild("PlayerGui"):WaitForChild("GameGui"):WaitForChild("SelectedInfo")
 local selectedsFrame = selectionContainer:WaitForChild("Selecteds")
 local selectedName = selectionContainer:WaitForChild("SelectedName")
 local selectedAmount = selectionContainer:WaitForChild("SelectedAmount")
@@ -42,18 +42,18 @@ local spawnBtnTemplate = guiAssets:WaitForChild("SpawnTemplate")
 local queueBtnTemplate = guiAssets:WaitForChild("QueueTemplate")
 local connectedGuis = {}
 
-local hoverInfo = playerGui.ScreenGui:WaitForChild("HoverInfo")
+local hoverInfo = playerGui.GameGui:WaitForChild("HoverInfo")
 local lastRSConn = nil
 
-local notificationFrame = playerGui.ScreenGui:WaitForChild("NotificationFrame")
+local notificationFrame = playerGui.GameGui:WaitForChild("NotificationFrame")
 local redNotification = notificationFrame:WaitForChild("RedNotification")
 local greenNotification = notificationFrame:WaitForChild("GreenNotification")
 
-local buildingPlacing = playerGui.ScreenGui:WaitForChild("BuildingPlacing")
+local buildingPlacing = playerGui.GameGui:WaitForChild("BuildingPlacing")
 local warningTemp = guiAssets:WaitForChild("WarningTemplate")
 local lastWarning = {}
 
-local HUD = playerGui.ScreenGui:WaitForChild("HUD")
+local HUD = playerGui.GameGui:WaitForChild("HUD")
 local cashFrame = HUD:WaitForChild("CashFrame")
 local cashLabel = cashFrame:WaitForChild("CashLabel")
 local cpmLabel = cashFrame:WaitForChild("CPMLabel")
@@ -64,7 +64,7 @@ local populationLabel = populationFrame:WaitForChild("PopulationLabel")
 
 local buildingTemp = guiAssets:WaitForChild("BuildingTemplate")
 
-local endFrame = playerGui.ScreenGui:WaitForChild("EndFrame")
+local endFrame = playerGui.GameGui:WaitForChild("EndFrame")
 local infoFrame = endFrame.InfoFrame
 local stateLabel = infoFrame:WaitForChild("State")
 local returnButton = infoFrame:WaitForChild("ReturnButton")
@@ -169,7 +169,52 @@ end
 -- Initialize the GUI manager and bind its event handlers.
 function GuiManager.Init(modules)
 	SelectionManager = modules.SelectionManager
+end
 
+-- Create building buttons from the shared building data.
+function GuiManager.SetupBuildingButtons(currentFrame)
+	for _, building in pairs(buildingData) do
+		if building.NotBuildable then
+			continue
+		end
+		local frame = buildingTemp:Clone()
+		frame.Name = building.Name
+		local button = frame:WaitForChild("Button")
+		button.Text = building.Name
+		local cost = building.Cost or 0
+		local costLabel = frame:WaitForChild("Cost")
+		costLabel.Text = cost .. "$"
+		local space = building.Space or 0
+		local spaceLabel = frame:WaitForChild("Space")
+		spaceLabel.Text = space .. "⚡"
+
+		frame.LayoutOrder = cost
+		frame.Parent = currentFrame
+	end
+	local infoCont = currentFrame:FindFirstAncestor("Buildings").InfoContainer
+	local desc = infoCont:FindFirstChild("Description")
+	local name = infoCont:FindFirstChild("Name")
+
+	local buttons = {}
+	for _, button in ipairs(currentFrame:GetDescendants()) do
+		if button:IsA("TextButton") then
+			table.insert(buttons, button)
+			button.MouseEnter:Connect(function()
+				infoCont.Visible = true
+				name.Text = buildingData[button.Text].Name or "TBA"
+				desc.Text = buildingData[button.Text].Description or "TBA"
+			end)
+			button.MouseLeave:Connect(function()
+				infoCont.Visible = false
+			end)
+		end
+	end
+
+	return buttons
+end
+
+-- Sets up the HUD for the game
+function GuiManager.OnGameStarted()
 	sellButton.MouseButton1Click:Connect(function()
 		local cooldown = ifCooldown()
 		if cooldown then
@@ -264,46 +309,13 @@ function GuiManager.Init(modules)
 	HUD.Visible = true
 end
 
--- Create building buttons from the shared building data.
-function GuiManager.SetupBuildingButtons(currentFrame)
-	for _, building in pairs(buildingData) do
-		if building.NotBuildable then
-			continue
-		end
-		local frame = buildingTemp:Clone()
-		frame.Name = building.Name
-		local button = frame:WaitForChild("Button")
-		button.Text = building.Name
-		local cost = building.Cost or 0
-		local costLabel = frame:WaitForChild("Cost")
-		costLabel.Text = cost .. "$"
-		local space = building.Space or 0
-		local spaceLabel = frame:WaitForChild("Space")
-		spaceLabel.Text = space .. "⚡"
+function GuiManager.OnGameStopped()
+	HUD.Visible = false
+end
 
-		frame.LayoutOrder = cost
-		frame.Parent = currentFrame
-	end
-	local infoCont = currentFrame:FindFirstAncestor("Buildings").InfoContainer
-	local desc = infoCont:FindFirstChild("Description")
-	local name = infoCont:FindFirstChild("Name")
-
-	local buttons = {}
-	for _, button in ipairs(currentFrame:GetDescendants()) do
-		if button:IsA("TextButton") then
-			table.insert(buttons, button)
-			button.MouseEnter:Connect(function()
-				infoCont.Visible = true
-				name.Text = buildingData[button.Text].Name or "TBA"
-				desc.Text = buildingData[button.Text].Description or "TBA"
-			end)
-			button.MouseLeave:Connect(function()
-				infoCont.Visible = false
-			end)
-		end
-	end
-
-	return buttons
+function GuiManager.OnVotingStarted()
+	HUD.Visible = false
+	print("Voting started")
 end
 
 -- Show a short red notification in the HUD.
