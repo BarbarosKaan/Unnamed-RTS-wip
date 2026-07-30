@@ -365,6 +365,12 @@ function ClientController.StartGame()
 		return
 	end
 
+	local team = plr.Team
+	if not team or team.Name == "Neutral" then
+		print("Player has no team assigned")
+		return
+	end
+
 	local modules = loadModules()
 	hasStarted = true
 	ClientController.StartPlacementSystem()

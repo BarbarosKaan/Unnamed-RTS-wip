@@ -6,9 +6,9 @@ local Teams = game:GetService("Teams")
 local server = ServerScriptService.Server
 local classes = server.Classes
 
-local gameManager = require(server.Modules.GameManager)
+local unitManager = require(server.Modules.UnitManager)
 local buildingClass = require(classes.BuildingClass)
-local unitClass = require(classes.UnitClass)
+local troopClass = require(classes.TroopClass)
 
 local spawnPoints = {}
 local GAME_MODE
@@ -55,7 +55,7 @@ local function initializeSpawnPoints()
 			builderModel.Parent = workspace.Units
 			builderModel:PivotTo(object:GetPivot() * CFrame.new(7, 0, 0))
 
-			local builderUnit = unitClass.New("Builder", nil, builderModel)
+			local builderUnit = troopClass.New("Builder", nil, builderModel)
 
 			local dataPacket = {
 				HQ = hqBuilding,
@@ -135,7 +135,7 @@ local function onPlayerAdded(plr)
 
 		local mySpawn = spawnPoints[assignedTeam.Name]
 
-		for _, unit in pairs(gameManager.GetEverything()) do
+		for _, unit in pairs(unitManager.GetEverything()) do
 			if not unit.Owner and unit.TeamData == plr.Team then
 				unit:AddOwner(plr)
 			end
@@ -181,7 +181,7 @@ local function onPlayerAdded(plr)
 end
 
 local function onPlayerRemoving(plr)
-	for _, unit in pairs(gameManager.GetEverything()) do
+	for _, unit in pairs(unitManager.GetEverything()) do
 		if unit.Owner == plr then
 			unit:RemoveOwner()
 		end

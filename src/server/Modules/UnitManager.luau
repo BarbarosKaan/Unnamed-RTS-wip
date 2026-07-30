@@ -1,32 +1,32 @@
 local manager = {}
 
-local activeUnits = {}
-local queueUnits = {}
+local activeTroops = {}
+local queueTroops = {}
 local activeBuildings = {}
 local activeAll = {}
 
 ----------------------------------------
 -- REGISTRATION FUNCTIONS
 ----------------------------------------
-function manager.RegisterUnit(unitModel, unitObject)
-	activeUnits[unitModel] = unitObject
-	activeAll[unitModel] = unitObject
+function manager.RegisterTroop(troopModel, troopObject)
+	activeTroops[troopModel] = troopObject
+	activeAll[troopModel] = troopObject
 end
 
-function manager.UnregisterUnit(unitModel)
-	activeUnits[unitModel] = nil
-	activeAll[unitModel] = nil
+function manager.UnregisterTroop(troopModel)
+	activeTroops[troopModel] = nil
+	activeAll[troopModel] = nil
 end
 
-function manager.RegisterUnitQueue(unitObject, owner)
-	unitObject.Owner = owner
-	table.insert(queueUnits, unitObject)
+function manager.RegisterTroopQueue(troopObject, owner)
+	troopObject.Owner = owner
+	table.insert(queueTroops, troopObject)
 end
 
-function manager.UnregisterUnitQueue(unitObject)
-	local idx = table.find(queueUnits, unitObject)
+function manager.UnregisterTroopQueue(troopObject)
+	local idx = table.find(queueTroops, troopObject)
 	if idx then
-		table.remove(queueUnits, idx)
+		table.remove(queueTroops, idx)
 	end
 end
 
@@ -43,8 +43,8 @@ end
 ----------------------------------------
 -- ACCESSOR FUNCTIONS
 ----------------------------------------
-function manager.GetUnit(unitModel)
-	return activeUnits[unitModel]
+function manager.GetTroop(troopModel)
+	return activeTroops[troopModel]
 end
 
 function manager.GetBuilding(buildingModel)
@@ -56,19 +56,19 @@ function manager.GetAllBuildings()
 	return activeBuildings
 end
 
-function manager.GetAllUnits()
-	return activeUnits
+function manager.GetAllTroops()
+	return activeTroops
 end
 
-function manager.GetQueueAndActiveUnits()
-	local units = {}
-	for _, unit in ipairs(queueUnits) do
-		table.insert(units, unit)
+function manager.GetQueueAndActiveTroops()
+	local troops = {}
+	for _, troop in ipairs(queueTroops) do
+		table.insert(troops, troop)
 	end
-	for _, unit in pairs(activeUnits) do
-		table.insert(units, unit)
+	for _, troop in pairs(activeTroops) do
+		table.insert(troops, troop)
 	end
-	return units
+	return troops
 end
 
 function manager.GetEverything()

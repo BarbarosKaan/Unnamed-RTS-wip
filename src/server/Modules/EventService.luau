@@ -12,12 +12,13 @@ local dataFolder = sharedF.Data
 local modules = server.Modules
 local remotes = ReplicatedStorage.Remotes
 
-local unitClass = require(classes.UnitClass)
-local unitData = require(dataFolder.UnitData)
+local troopClass = require(classes.TroopClass)
+local troopData = require(dataFolder.TroopData)
 local buildingClass = require(classes.BuildingClass)
 local buildingData = require(dataFolder.BuildingData)
+local UnitClass = require(classes.UnitClass)
 
-local gameManager = require(modules.GameManager)
+local unitManager = require(modules.UnitManager)
 
 local queueEvent = remotes.QueueEvent
 local moveEvent = remotes.MoveEvent
@@ -50,7 +51,7 @@ local function checkPlrEnergy(plr, data)
 		return false
 	end
 	local energy = data.Space
-	return buildingClass.isEnergyEnough(plr, energy)
+	return UnitClass.isEnergyEnough(plr, energy)
 end
 
 local function checkPlrPopulation(plr, data)
@@ -58,7 +59,7 @@ local function checkPlrPopulation(plr, data)
 		return false
 	end
 	local population = data.Space
-	return unitClass.isPopulationEnough(plr, population)
+	return UnitClass.isPopulationEnough(plr, population)
 end
 
 function EventManager.Init(serverController)
@@ -78,7 +79,7 @@ function EventManager.Init(serverController)
 			return
 		end
 
-		local myUnit = gameManager.GetUnit(model)
+		local myUnit = unitManager.GetTroop(model)
 		if not myUnit then
 			return
 		end
@@ -117,14 +118,14 @@ function EventManager.Init(serverController)
 	end)
 
 	queueEvent.OnServerEvent:Connect(function(plr, building, unit, isAdding)
-		local myBuilding = gameManager.GetBuilding(building)
+		local myBuilding = unitManager.GetBuilding(building)
 		if not myBuilding or myBuilding.Owner ~= plr or not table.find(myBuilding.Type.Behaviour, "Spawn") then
 			return
 		end
 
 		if isAdding then
-			local data = unitData[unit]
-			local isLimit = unitClass.checkForLimit(plr, data)
+			local data = troopData[unit]
+			local isLimit = UnitClass.checkForLimit(plr, data)
 			if isLimit then
 				print("limit")
 				return
@@ -148,7 +149,7 @@ function EventManager.Init(serverController)
 			if not success then
 				return
 			end
-			local unitCost = unitData[unit].Cost
+			local unitCost = troopData[unit].Cost
 			local playerCash = getPlayerCash(plr)
 			if playerCash then
 				playerCash.Value += unitCost * 0.1
@@ -217,11 +218,11 @@ function EventManager.Init(serverController)
 	end)
 
 	sellEvent.OnServerEvent:Connect(function(plr, unit)
-		local myUnit = gameManager.GetUnit(unit)
+		local myUnit = unitManager.GetTroop(unit)
 		local isBuilding = false
 
 		if not myUnit then
-			myUnit = gameManager.GetBuilding(unit)
+			myUnit = unitManager.GetBuilding(unit)
 			if myUnit then
 				isBuilding = true
 			end
@@ -239,8 +240,8 @@ function EventManager.Init(serverController)
 				cost = buildingData[unit.Name].Cost
 			end
 		else
-			if unitData[unit.Name] then
-				cost = unitData[unit.Name].Cost
+			if troopData[unit.Name] then
+				cost = troopData[unit.Name].Cost
 			end
 		end
 
@@ -255,7 +256,7 @@ function EventManager.Init(serverController)
 	end)
 
 	interactEvent.OnServerEvent:Connect(function(plr, unit)
-		local myUnit = gameManager.GetUnit(unit) or gameManager.GetBuilding(unit)
+		local myUnit = unitManager.GetTroop(unit) or unitManager.GetBuilding(unit)
 		if not myUnit then
 			return
 		end
@@ -268,7 +269,7 @@ function EventManager.Init(serverController)
 			return false
 		end
 		if type == "UNIT" then
-			data = unitData[unit]
+			data = troopData[unit]
 		elseif type == "BUILDING" then
 			data = buildingData[unit]
 		end
@@ -294,8 +295,8 @@ function EventManager.Init(serverController)
 	isLimitRemote.OnServerInvoke = function(plr, uType, unit)
 		local data
 		if uType == "UNIT" then
-			data = unitData[unit.Name]
-			return unitClass.checkForLimit(plr, data)
+			data = troopData[unit.Name]
+			return troopClass.checkForLimit(plr, data)
 		elseif uType == "BUILDING" then
 			data = buildingData[unit.Name]
 			return buildingClass.checkForLimit(plr, data)
@@ -346,6 +347,7 @@ function EventManager.Init(serverController)
 		end
 		if i <= 1 then
 			gameEnded = true
+			serverController.StopGame()
 			if winnerTeam and winnerTeam:GetPlayers()[1] then
 				endScreenRemote:FireClient(winnerTeam:GetPlayers()[1], true)
 			end

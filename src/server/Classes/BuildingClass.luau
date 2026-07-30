@@ -1,10 +1,11 @@
-local building = {}
+local UnitClass = require(script.Parent.UnitClass)
+
+local building = setmetatable({}, UnitClass)
 building.__index = building
 
---// Servisler
+--// Services
 local ServerScriptService = game:GetService("ServerScriptService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local CollectionService = game:GetService("CollectionService")
 local TweenService = game:GetService("TweenService")
 
 --// Variables
@@ -14,188 +15,20 @@ local server = ServerScriptService.Server
 local modules = server.Modules
 local classes = server.Classes
 
---// Remotelar
+--// Remotes
 local events = ReplicatedStorage.Remotes
 local removeSelectionEvent = events.RemoveSelectionEvent
 local castleDestroyed = events.CastleDestroyed
 
 --// Modules
 local buildingData = require(data.BuildingData)
-local unitData = require(data.UnitData)
-local gameManager = require(modules.GameManager)
-local unitClass = require(classes.UnitClass)
+local troopData = require(data.TroopData)
+local unitManager = require(modules.UnitManager)
+local troopClass = require(classes.TroopClass)
 
 --// Assets
 local uiAssets = ReplicatedStorage.Assets.UI
 local modelAssets = ReplicatedStorage.Assets.Models
-
---=========================================
-
-local function getClosestUnit(model, unitTable)
-	if not model then
-		return nil
-	end
-
-	local closest = nil
-	local closestDistance = math.huge
-
-	for _, v in ipairs(unitTable) do
-		if not v.Model or not v.Model.PrimaryPart then
-			continue
-		end
-
-		local distance = (v.Model.PrimaryPart.Position - model.PrimaryPart.Position).Magnitude
-		if distance < closestDistance then
-			closest = v
-			closestDistance = distance
-		end
-	end
-
-	return closest
-end
-
-local function getSafeSpawnPosition(rootPart, tag)
-	if not rootPart then
-		return nil
-	end
-
-	local buildingSize = math.max(rootPart.Size.X, rootPart.Size.Z)
-	local maxRadius = buildingSize * 2.5
-	local spawnPosition = nil
-	local attempts = 0
-
-	while not spawnPosition and attempts < 10 do
-		attempts += 1
-
-		local angle = math.rad(math.random(0, 360))
-		local radius = math.random(maxRadius * 30, maxRadius * 90) / 100
-
-		local offsetX = math.cos(angle) * radius
-		local offsetZ = math.sin(angle) * radius
-
-		local startRayPos = rootPart.Position + Vector3.new(offsetX, 15, offsetZ)
-
-		local raycastParams = RaycastParams.new()
-		raycastParams.FilterType = Enum.RaycastFilterType.Include
-		raycastParams.FilterDescendantsInstances = CollectionService:GetTagged(tag)
-
-		local raycastResult = workspace:Raycast(startRayPos, Vector3.new(0, -30, 0), raycastParams)
-
-		if raycastResult then
-			local checkOverlap = workspace:GetPartBoundsInRadius(raycastResult.Position + Vector3.new(0, 2, 0), 2.5)
-			local isSpaceOccupied = false
-
-			for _, part in ipairs(checkOverlap) do
-				if
-					part:FindFirstAncestorOfClass("Model")
-					and part:FindFirstAncestorOfClass("Model"):FindFirstChild("Owner")
-				then
-					isSpaceOccupied = true
-					break
-				end
-			end
-
-			if not isSpaceOccupied then
-				spawnPosition = raycastResult.Position + Vector3.new(0, 3, 0)
-			end
-		end
-	end
-
-	if not spawnPosition then
-		spawnPosition = rootPart.Position + Vector3.new(math.random(-2, 2), 0, math.random(-2, 2))
-	end
-
-	return spawnPosition
-end
-
---=========================================
-
-local function getCurrentEnergy(owner)
-	if not owner then
-		return nil
-	end
-	local stats = owner:FindFirstChild("stats")
-	if not stats then
-		return
-	end
-	local energy = stats:FindFirstChild("Energy")
-	if not energy then
-		return
-	end
-	return energy
-end
-
-local function addEnergy(owner, energyAmount)
-	local currentEnergy = getCurrentEnergy(owner)
-	if not currentEnergy then
-		return
-	end
-	currentEnergy.Value += energyAmount
-end
-
-local function removeEnergy(owner, energyAmount)
-	local currentEnergy = getCurrentEnergy(owner)
-	if not currentEnergy then
-		return
-	end
-	currentEnergy.Value -= energyAmount
-end
-
-local function upgradeMaxEnergy(owner, energyAmount)
-	if not owner then
-		return
-	end
-	local maxEnergy = owner:FindFirstChild("stats") and owner.stats.EnergyLimit
-	if not maxEnergy then
-		return
-	end
-	maxEnergy.Value += energyAmount
-end
-
-local function removeMaxEnergy(owner, energyAmount)
-	if not owner then
-		return
-	end
-	local maxEnergy = owner:FindFirstChild("stats") and owner.stats.EnergyLimit
-	if not maxEnergy then
-		return
-	end
-	maxEnergy.Value -= energyAmount
-end
-
-local function upgradeMaxPopulation(owner, population)
-	if not owner then
-		return
-	end
-	local maxPopulation = owner:FindFirstChild("stats") and owner.stats.PopulationLimit
-	if not maxPopulation then
-		return
-	end
-	maxPopulation.Value += population
-end
-
-local function removeMaxPopulation(owner, population)
-	if not owner then
-		return
-	end
-	local maxPopulation = owner:FindFirstChild("stats") and owner.stats.PopulationLimit
-	if not maxPopulation then
-		return
-	end
-	maxPopulation.Value -= population
-end
-
-function building.isEnergyEnough(owner, energyCost)
-	if not owner then
-		return true
-	end -- Neutral buildings do not have energy limits
-	local currentEnergy = getCurrentEnergy(owner)
-	if not currentEnergy then
-		return false
-	end
-	local maxEnergy = owner:FindFirstChild("stats") and owner.stats.EnergyLimit.Value or 10
-	return currentEnergy.Value + energyCost <= maxEnergy
-end
 
 function building.checkForLimit(owner, bData)
 	if not owner then
@@ -206,7 +39,7 @@ function building.checkForLimit(owner, bData)
 		return false
 	end
 	local currentCount = 0
-	for _, build in pairs(gameManager.GetAllBuildings()) do
+	for _, build in pairs(unitManager.GetAllBuildings()) do
 		if build.Owner == owner and build.Type == bData then
 			currentCount += 1
 		end
@@ -219,9 +52,10 @@ end
 function building.New(buildingType, owner, model, zone)
 	local self = setmetatable({}, building)
 
+	self.Kind = "Building"
 	self.Type = buildingData[buildingType]
 	self.Model = model
-	self.Owner = owner -- owner nil gelebilir (Sahipsiz Bina)
+	self.Owner = owner
 	self.Health = math.floor(self.Type.MaxHealth * 0.1)
 	self.BuildProgress = 0
 	self.IsBuilt = false
@@ -235,13 +69,12 @@ function building.New(buildingType, owner, model, zone)
 
 	if owner then
 		self.TeamData = owner.Team
-		addEnergy(owner, self.Type.Space)
+		self:addEnergy()
 	end
 
-	gameManager.RegisterBuilding(model, self)
+	unitManager.RegisterBuilding(model, self)
 	self:Setup()
 
-	-- Use team color when owned, otherwise leave the building neutral gray.
 	self:ApplyTeamColor()
 
 	if buildingType == "HQ" then
@@ -256,90 +89,6 @@ function building.New(buildingType, owner, model, zone)
 	end
 
 	return self
-end
-
---=========================================
-
-function building:AddOwner(newOwner)
-	if not newOwner or self.Owner == newOwner then
-		return
-	end
-
-	-- Remove the previous owner's effects before assigning a new owner.
-	if self.Owner then
-		removeEnergy(self.Owner, self.Type.Space)
-		if self.IsBuilt then
-			if table.find(self.Type.Behaviour, "AddEnergy") then
-				removeMaxEnergy(self.Owner, self.Type.AddEnergy)
-			end
-			if table.find(self.Type.Behaviour, "AddPopulation") then
-				removeMaxPopulation(self.Owner, self.Type.AddPopulation)
-			end
-		end
-	end
-
-	-- Assign the new owner.
-	self.Owner = newOwner
-	self.TeamData = newOwner and newOwner.Team or nil
-
-	-- Update the model ownership tag.
-	if self.Model and self.Model:FindFirstChild("Owner") then
-		self.Model.Owner.Value = newOwner
-	end
-
-	-- Update the new owner's statistics.
-	addEnergy(newOwner, self.Type.Space)
-	if self.IsBuilt then
-		if table.find(self.Type.Behaviour, "AddEnergy") then
-			upgradeMaxEnergy(newOwner, self.Type.AddEnergy)
-		end
-		if table.find(self.Type.Behaviour, "AddPopulation") then
-			upgradeMaxPopulation(newOwner, self.Type.AddPopulation)
-		end
-	end
-
-	local cashPerTick = self.Type.CashPerTick
-	local cashWait = self.Type.CashCooldown
-	local cashPerMin = (60 / cashWait) * cashPerTick
-	local cpmVal = self.Owner and self.Owner:FindFirstChild("stats") and self.Owner.stats:FindFirstChild("CPM")
-	cpmVal.Value += cashPerMin
-
-	-- Update the team color based on the new owner.
-	self:ApplyTeamColor()
-
-	-- Reset range and targets so they can be recalculated for the new allies or enemies.
-	self.unitsInRange = {}
-end
-
-function building:RemoveOwner()
-	if not self.Owner then
-		return
-	end
-
-	self.Owner = nil
-
-	if self.Model and self.Model:FindFirstChild("Owner") then
-		self.Model.Owner.Value = nil
-	end
-
-	self.unitsInRange = {}
-
-	self:ApplyTeamColor()
-end
-
-function building:ApplyTeamColor()
-	if not self.Model or not self.Model:FindFirstChild("ColorParts") then
-		return
-	end
-
-	-- Use team color when owned, otherwise use Dark Stone Grey for neutral buildings.
-	local color = self.Owner and self.Owner.TeamColor or BrickColor.new("Dark stone grey")
-
-	for _, part in pairs(self.Model.ColorParts:GetDescendants()) do
-		if part:IsA("BasePart") then
-			part.BrickColor = color
-		end
-	end
 end
 
 --=========================================
@@ -481,10 +230,10 @@ function building:BuildingFinish()
 	-- Increase limits only when the building has an owner.
 	if self.Owner then
 		if table.find(self.Type.Behaviour, "AddEnergy") then
-			upgradeMaxEnergy(self.Owner, self.Type.AddEnergy)
+			self:upgradeMaxEnergy()
 		end
 		if table.find(self.Type.Behaviour, "AddPopulation") then
-			upgradeMaxPopulation(self.Owner, self.Type.AddPopulation)
+			self:upgradeMaxPopulation()
 		end
 	end
 
@@ -497,63 +246,6 @@ function building:BuildingFinish()
 	if buildingProgress then
 		buildingProgress:Destroy()
 	end
-end
-
---=========================================
-
-function building:Bullet(endPos)
-	local startPos = self.Model.PrimaryPart.Position
-	local distance = (endPos - startPos).Magnitude
-
-	local bulletPart = Instance.new("Part")
-	bulletPart.Size = Vector3.new(0.1, 0.1, 0.1)
-	bulletPart.Transparency = 1
-	bulletPart.Anchored = true
-	bulletPart.CanCollide = false
-	bulletPart.CanTouch = false
-	bulletPart.CanQuery = false
-	bulletPart.Name = "Bullet"
-	bulletPart.Parent = workspace
-
-	bulletPart.CFrame = CFrame.lookAt(startPos, endPos)
-
-	local att0 = Instance.new("Attachment")
-	att0.Name = "Att0"
-	att0.Position = Vector3.new(0, 0, 0)
-	att0.Parent = bulletPart
-
-	local att1 = Instance.new("Attachment")
-	att1.Name = "Att1"
-	att1.Position = Vector3.new(0, 0, -2)
-	att1.Parent = bulletPart
-
-	local beam = Instance.new("Beam")
-	beam.Attachment0 = att0
-	beam.Attachment1 = att1
-	beam.TextureSpeed = 0
-	beam.Width0 = 0.6
-	beam.Width1 = 0.6
-
-	-- Use team color for the laser when owned; otherwise use white.
-	beam.Color = ColorSequence.new(self.Owner and self.Owner.TeamColor.Color or Color3.fromRGB(255, 255, 255))
-	beam.Parent = bulletPart
-	beam.FaceCamera = true
-
-	local speed = 150
-	local duration = distance / speed
-
-	local track = TweenService:Create(
-		bulletPart,
-		TweenInfo.new(duration, Enum.EasingStyle.Linear),
-		{ CFrame = CFrame.lookAt(endPos, endPos + bulletPart.CFrame.LookVector) }
-	)
-
-	track:Play()
-
-	task.spawn(function()
-		track.Completed:Wait()
-		bulletPart:Destroy()
-	end)
 end
 
 --=========================================
@@ -610,31 +302,39 @@ function building:AddQueue(unitType)
 		print("Neutral buildings cannot train units")
 		return
 	end
-	local unit = unitData[unitType]
+	local unit = troopData[unitType]
 	if not unit or not table.find(self.Type.Spawnables, unit) then
 		print("Invalid unit type")
 		return
 	end
 	table.insert(self.Queue, unit)
-	unitClass.addPopulation(self.Owner, unit.Space)
-	gameManager.RegisterUnitQueue(unit, self.Owner)
+	troopClass:addPopulation(unit.Space, self.Owner)
+	unitManager.RegisterTroopQueue(unit, self.Owner)
 end
 
 function building:RemoveQueue(unitType)
 	if not self.Owner then
 		return false
 	end
-	local idx = table.find(self.Queue, unitData[unitType])
-	if not idx then
-		print("Unit not in queue")
+
+	local targetData = troopData[unitType]
+	local targetIdx = nil
+
+	-- Starting from the 2nd position, find the last occurrence of the unit in the queue
+	for i = #self.Queue, 2, -1 do
+		if self.Queue[i] == targetData then
+			targetIdx = i
+			break
+		end
+	end
+
+	if not targetIdx then
 		return false
 	end
-	if idx == 1 then
-		return false
-	end
-	table.remove(self.Queue, idx)
-	unitClass.removePopulation(self.Owner, unitData[unitType].Space)
-	gameManager.UnregisterUnitQueue(unitData[unitType])
+
+	table.remove(self.Queue, targetIdx)
+	troopClass:removePopulation(targetData.Space, self.Owner)
+	unitManager.UnregisterTroopQueue(targetData)
 	return true
 end
 
@@ -659,15 +359,23 @@ function building:Spawn(unit)
 		return
 	end
 
-	local pos = self.Type.SpawnOnWater and getSafeSpawnPosition(self.Model.PrimaryPart, "Water")
-		or getSafeSpawnPosition(self.Model.PrimaryPart, "Ground")
+	local rangePart = self.Model:FindFirstChild("RangeVisual") or nil
+
+	local pos = self.Type.SpawnOnWater
+			and self:getSafeSpawnPosition("Water", self.Owner, rangePart, self.Model.PrimaryPart)
+		or self:getSafeSpawnPosition("Ground", self.Owner, rangePart, self.Model.PrimaryPart)
+
+	if not pos then
+		print("No valid spawn position found for unit:", unitInfo.Name)
+		return
+	end
 
 	local clone = modelTemplate:Clone()
 	clone.Parent = workspace.Units
 	clone:PivotTo(CFrame.new(pos))
 
-	gameManager.UnregisterUnitQueue(unitInfo)
-	unitClass.New(unitInfo.Name, self.Owner, clone)
+	unitManager.UnregisterTroopQueue(unitInfo)
+	troopClass.New(unitInfo.Name, self.Owner, clone)
 end
 
 function building:SetupRange()
@@ -684,7 +392,7 @@ function building:SetupRange()
 
 			local myPos = self.Model.PrimaryPart.Position
 
-			for _, otherUnit in pairs(gameManager.GetEverything()) do
+			for _, otherUnit in pairs(unitManager.GetEverything()) do
 				if otherUnit == self then
 					continue
 				end
@@ -772,7 +480,7 @@ function building:SetupAttack()
 			local target = nil
 
 			while #self.unitsInRange > 0 do
-				local closest = getClosestUnit(self.Model, self.unitsInRange)
+				local closest = self:getClosestUnit(self.unitsInRange)
 
 				if not closest or not closest.Model then
 					if closest then
@@ -822,7 +530,7 @@ function building:SetupHeal()
 					break
 				end
 
-				local closest = getClosestUnit(self.Model, validTargets)
+				local closest = self:getClosestUnit(validTargets)
 
 				if not closest or not closest.Model then
 					if closest then
@@ -1052,7 +760,7 @@ function building:Destroy()
 		self.Connections = nil
 	end
 
-	for _, v in pairs(gameManager.GetEverything()) do
+	for _, v in pairs(unitManager.GetEverything()) do
 		if v.unitsInRange then
 			local index = table.find(v.unitsInRange, self)
 			if index then
@@ -1063,10 +771,10 @@ function building:Destroy()
 
 	if self.Owner then
 		if table.find(self.Type.Behaviour, "AddEnergy") then
-			removeMaxEnergy(self.Owner, self.Type.AddEnergy)
+			self:removeMaxEnergy()
 		end
 		if table.find(self.Type.Behaviour, "AddPopulation") then
-			removeMaxPopulation(self.Owner, self.Type.AddPopulation)
+			self:removeMaxPopulation()
 		end
 		if table.find(self.Type.Behaviour, "GiveCash") then
 			local cashPerTick = self.Type.CashPerTick
@@ -1075,7 +783,7 @@ function building:Destroy()
 			local cpmVal = self.Owner and self.Owner:FindFirstChild("stats") and self.Owner.stats:FindFirstChild("CPM")
 			cpmVal.Value -= cashPerMin
 		end
-		removeEnergy(self.Owner, self.Type.Space)
+		self:removeEnergy(self.Type.Space)
 		removeSelectionEvent:FireClient(self.Owner, self.Model)
 	end
 
@@ -1083,7 +791,7 @@ function building:Destroy()
 		castleDestroyed:Fire(self)
 	end
 
-	gameManager.UnregisterBuilding(self.Model)
+	unitManager.UnregisterBuilding(self.Model)
 
 	if self.Model then
 		self.Model:Destroy()

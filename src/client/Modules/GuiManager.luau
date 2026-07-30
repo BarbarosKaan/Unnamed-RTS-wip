@@ -16,7 +16,7 @@ local remotes = replicatedStorage.Remotes
 local assets = replicatedStorage.Assets
 local guiAssets = assets.UI
 
-local unitData = require(dataFolder.UnitData)
+local troopData = require(dataFolder.TroopData)
 local buildingData = require(dataFolder.BuildingData)
 
 local queueEvent = remotes.QueueEvent
@@ -28,8 +28,10 @@ local interactEvent = remotes.InteractEvent
 local notificationEvent = remotes.NotificationEvent
 local endScreenEvent = remotes.EndScreenEvent
 
+local gameGui = playerGui:WaitForChild("GameGui")
+
 local iconTemplate = guiAssets:WaitForChild("IconTemplate")
-local selectionContainer = plr:WaitForChild("PlayerGui"):WaitForChild("GameGui"):WaitForChild("SelectedInfo")
+local selectionContainer = gameGui:WaitForChild("SelectedInfo")
 local selectedsFrame = selectionContainer:WaitForChild("Selecteds")
 local selectedName = selectionContainer:WaitForChild("SelectedName")
 local selectedAmount = selectionContainer:WaitForChild("SelectedAmount")
@@ -42,18 +44,18 @@ local spawnBtnTemplate = guiAssets:WaitForChild("SpawnTemplate")
 local queueBtnTemplate = guiAssets:WaitForChild("QueueTemplate")
 local connectedGuis = {}
 
-local hoverInfo = playerGui.GameGui:WaitForChild("HoverInfo")
+local hoverInfo = gameGui:WaitForChild("HoverInfo")
 local lastRSConn = nil
 
-local notificationFrame = playerGui.GameGui:WaitForChild("NotificationFrame")
+local notificationFrame = gameGui:WaitForChild("NotificationFrame")
 local redNotification = notificationFrame:WaitForChild("RedNotification")
 local greenNotification = notificationFrame:WaitForChild("GreenNotification")
 
-local buildingPlacing = playerGui.GameGui:WaitForChild("BuildingPlacing")
+local buildingPlacing = gameGui:WaitForChild("BuildingPlacing")
 local warningTemp = guiAssets:WaitForChild("WarningTemplate")
 local lastWarning = {}
 
-local HUD = playerGui.GameGui:WaitForChild("HUD")
+local HUD = gameGui:WaitForChild("HUD")
 local cashFrame = HUD:WaitForChild("CashFrame")
 local cashLabel = cashFrame:WaitForChild("CashLabel")
 local cpmLabel = cashFrame:WaitForChild("CPMLabel")
@@ -64,7 +66,7 @@ local populationLabel = populationFrame:WaitForChild("PopulationLabel")
 
 local buildingTemp = guiAssets:WaitForChild("BuildingTemplate")
 
-local endFrame = playerGui.GameGui:WaitForChild("EndFrame")
+local endFrame = gameGui:WaitForChild("EndFrame")
 local infoFrame = endFrame.InfoFrame
 local stateLabel = infoFrame:WaitForChild("State")
 local returnButton = infoFrame:WaitForChild("ReturnButton")
@@ -242,7 +244,7 @@ function GuiManager.OnGameStarted()
 		end
 		startCooldown()
 		for _, unit in ipairs(SelectionManager.SelectedUnits) do
-			local data = unitData[unit.Name] or buildingData[unit.Name]
+			local data = troopData[unit.Name] or buildingData[unit.Name]
 			if data.Interactable == true then
 				interactEvent:FireServer(unit)
 			end
@@ -410,15 +412,15 @@ function GuiManager.OpenSpawnGui(buildingModel)
 					return
 				end
 
-				local enoughPopulation = enoughPopulationRemote:InvokeServer(unitData[button.Name])
+				local enoughPopulation = enoughPopulationRemote:InvokeServer(troopData[button.Name])
 				if not enoughPopulation then
 					GuiManager.NewRedNotification("Not enough population!")
 					return
 				end
 
-				local isLimit = isLimitRemote:InvokeServer("UNIT", unitData[button.Name])
+				local isLimit = isLimitRemote:InvokeServer("UNIT", troopData[button.Name])
 				if isLimit then
-					GuiManager.NewRedNotification("Unit limit reached! (" .. unitData[button.Name].Limit .. ")")
+					GuiManager.NewRedNotification("Unit limit reached! (" .. troopData[button.Name].Limit .. ")")
 					return
 				end
 
@@ -464,7 +466,7 @@ function GuiManager.OpenSpawnGui(buildingModel)
 			end)
 
 			button.MouseEnter:Connect(function()
-				local desc = unitData[button.Name].Description
+				local desc = troopData[button.Name].Description
 				if not desc then
 					return
 				end
@@ -517,7 +519,7 @@ function GuiManager.SelectNew(newSelected, allSelecteds)
 		for _, unit in ipairs(allSelecteds) do
 			local unitName = unit.Name
 
-			local data = unitData[unit.Name]
+			local data = troopData[unit.Name]
 			if not data then
 				data = buildingData[unit.Name]
 			end
@@ -564,7 +566,7 @@ function GuiManager.SelectNew(newSelected, allSelecteds)
 		-- Show the single selected unit details.
 		selectedName.Text = newSelected.Name
 
-		local data = unitData[newSelected.Name]
+		local data = troopData[newSelected.Name]
 		if not data then
 			data = buildingData[newSelected.Name]
 		end
