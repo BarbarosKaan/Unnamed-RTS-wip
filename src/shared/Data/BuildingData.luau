@@ -184,6 +184,7 @@ local data = {
 			troopData["Repairman"],
 			troopData["Slinger"],
 			troopData["Swordsman"],
+			troopData["Bannerman"],
 		},
 		Cost = 0,
 		Space = 0,

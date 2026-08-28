@@ -47,16 +47,16 @@ function UnitClass:AddOwner(newOwner)
 		self:addEnergy()
 
 		if self.IsBuilt then
-			if table.find(self.Type.Behaviour, "AddEnergy") then
+			if table.find(self.Data.Behaviour, "AddEnergy") then
 				self:upgradeMaxEnergy()
 			end
-			if table.find(self.Type.Behaviour, "AddPopulation") then
+			if table.find(self.Data.Behaviour, "AddPopulation") then
 				self:upgradeMaxPopulation()
 			end
 		end
 
-		local cashPerTick = self.Type.CashPerTick
-		local cashWait = self.Type.CashCooldown
+		local cashPerTick = self.Data.CashPerTick
+		local cashWait = self.Data.CashCooldown
 		local cashPerMin = (60 / cashWait) * cashPerTick
 		local cpmVal = self.Owner and self.Owner:FindFirstChild("stats") and self.Owner.stats:FindFirstChild("CPM")
 		cpmVal.Value += cashPerMin
@@ -144,8 +144,8 @@ function UnitClass:TakeDamage(amount)
 		if not healthBar.Enabled then
 			healthBar.Enabled = true
 		end
-		healthBar.Frame.Fill.Size = UDim2.fromScale(math.max(0, self.Health / self.Type.MaxHealth), 1)
-		healthLabel.Text = math.floor(self.Health) .. "/" .. self.Type.MaxHealth
+		healthBar.Frame.Fill.Size = UDim2.fromScale(math.max(0, self.Health / self.Data.MaxHealth), 1)
+		healthLabel.Text = math.floor(self.Health) .. "/" .. self.Data.MaxHealth
 	end
 
 	if self.Health <= 0 then
@@ -157,16 +157,16 @@ function UnitClass:Heal(amount)
 	if self.Health <= 0 then
 		return
 	end
-	self.Health = math.min(self.Health + amount, self.Type.MaxHealth)
+	self.Health = math.min(self.Health + amount, self.Data.MaxHealth)
 
 	local healthBar = self.Model and self.Model.PrimaryPart and self.Model.PrimaryPart:FindFirstChild("HealthBar")
 	if healthBar then
 		local healthLabel = healthBar.Frame.HealthLabel
-		if healthBar.Enabled and self.Health >= self.Type.MaxHealth then
+		if healthBar.Enabled and self.Health >= self.Data.MaxHealth then
 			healthBar.Enabled = false
 		end
-		healthBar.Frame.Fill.Size = UDim2.fromScale(self.Health / self.Type.MaxHealth, 1)
-		healthLabel.Text = math.floor(self.Health) .. "/" .. self.Type.MaxHealth
+		healthBar.Frame.Fill.Size = UDim2.fromScale(self.Health / self.Data.MaxHealth, 1)
+		healthLabel.Text = math.floor(self.Health) .. "/" .. self.Data.MaxHealth
 	end
 end
 
@@ -205,10 +205,10 @@ function UnitClass:Destroy()
 	elseif self.Kind == "Building" then
 		unitManager.UnregisterBuilding(self.Model)
 		self:removeEnergy()
-		if table.find(self.Type.Behaviour, "AddEnergy") then
+		if table.find(self.Data.Behaviour, "AddEnergy") then
 			self:removeMaxEnergy()
 		end
-		if table.find(self.Type.Behaviour, "AddPopulation") then
+		if table.find(self.Data.Behaviour, "AddPopulation") then
 			self:removeMaxPopulation()
 		end
 	end
@@ -249,43 +249,60 @@ function UnitClass:getSafeSpawnPosition(tag, owner, rangePart, primaryPart)
 		or (self.Model and self.Model.PrimaryPart and self.Model.PrimaryPart.Position)
 		or Vector3.new(0, 0, 0)
 
+	local searchBands = {
+		{ min = 0.10, max = 0.30 },
+		{ min = 0.30, max = 0.55 },
+		{ min = 0.55, max = 0.80 },
+		{ min = 0.80, max = 1.00 },
+	}
+
 	local spawnPosition = nil
 	local attempts = 0
+	local maxAttempts = 24
 
-	while not spawnPosition and attempts < 10 do
-		attempts += 1
+	for _, band in ipairs(searchBands) do
+		if spawnPosition then
+			break
+		end
 
-		local angle = math.random() * math.pi * 2
-		local randomPercentage = 0.20 + (math.random() * 0.70)
-		local radius = maxRadius * randomPercentage
+		local bandAttempts = 0
+		local bandLimit = math.max(4, math.floor(maxAttempts / #searchBands))
 
-		local offsetX = math.cos(angle) * radius
-		local offsetZ = math.sin(angle) * radius
+		while not spawnPosition and bandAttempts < bandLimit and attempts < maxAttempts do
+			attempts += 1
+			bandAttempts += 1
 
-		local startRayPos = basePosition + Vector3.new(offsetX, 15, offsetZ)
-		local raycastResult = workspace:Raycast(startRayPos, Vector3.new(0, -30, 0))
+			local angle = math.random() * math.pi * 2
+			local radiusFactor = band.min + (band.max - band.min) * math.random()
+			local radius = maxRadius * radiusFactor
 
-		if raycastResult then
-			local hitPart = raycastResult.Instance
+			local offsetX = math.cos(angle) * radius
+			local offsetZ = math.sin(angle) * radius
+			local startRayPos = basePosition + Vector3.new(offsetX, 15, offsetZ)
+			local raycastResult = workspace:Raycast(startRayPos, Vector3.new(0, -30, 0))
 
-			if not hitPart or not CollectionService:HasTag(hitPart, tag) then
-				print(hitPart and hitPart.Name or "No part hit", "does not have the required tag:", tag)
-				continue
-			end
+			if raycastResult then
+				local hitPart = raycastResult.Instance
 
-			local checkOverlap = workspace:GetPartBoundsInRadius(raycastResult.Position + Vector3.new(0, 2, 0), 2.5)
-			local isSpaceOccupied = false
-
-			for _, part in ipairs(checkOverlap) do
-				local ancestorModel = part:FindFirstAncestorOfClass("Model")
-				if ancestorModel and ancestorModel:FindFirstChild("Owner") then
-					isSpaceOccupied = true
-					break
+				if not hitPart or not CollectionService:HasTag(hitPart, tag) then
+					print(hitPart and hitPart.Name or "No part hit", "does not have the required tag:", tag)
+					continue
 				end
-			end
 
-			if not isSpaceOccupied then
-				spawnPosition = raycastResult.Position
+				local checkOverlap = workspace:GetPartBoundsInRadius(raycastResult.Position + Vector3.new(0, 2, 0), 2.5)
+				local isSpaceOccupied = false
+
+				for _, part in ipairs(checkOverlap) do
+					local ancestorModel = part:FindFirstAncestorOfClass("Model")
+					if ancestorModel and ancestorModel:FindFirstChild("Owner") then
+						isSpaceOccupied = true
+						break
+					end
+				end
+
+				if not isSpaceOccupied then
+					spawnPosition = raycastResult.Position
+				end
 			end
 		end
 	end
@@ -299,7 +316,7 @@ end
 
 function UnitClass:addPopulation(space, owner)
 	local realOwner = owner or self.Owner
-	local population = space or self.Type.Space
+	local population = space or self.Data.Space
 	local stats = realOwner and realOwner:FindFirstChild("stats")
 	local populationValue = stats and stats:FindFirstChild("Population")
 	if populationValue then
@@ -309,7 +326,7 @@ end
 
 function UnitClass:removePopulation(space, owner)
 	local realOwner = owner or self.Owner
-	local population = space or self.Type.Space
+	local population = space or self.Data.Space
 	local stats = realOwner and realOwner:FindFirstChild("stats")
 	local populationValue = stats and stats:FindFirstChild("Population")
 	if populationValue then
@@ -318,7 +335,7 @@ function UnitClass:removePopulation(space, owner)
 end
 
 function UnitClass:upgradeMaxPopulation()
-	local population = self.Type.AddPopulation
+	local population = self.Data.AddPopulation
 	if not self.Owner then
 		return
 	end
@@ -330,7 +347,7 @@ function UnitClass:upgradeMaxPopulation()
 end
 
 function UnitClass:removeMaxPopulation()
-	local population = self.Type.AddPopulation
+	local population = self.Data.AddPopulation
 	if not self.Owner then
 		return
 	end
@@ -367,7 +384,7 @@ function UnitClass:getCurrentEnergy()
 end
 
 function UnitClass:addEnergy()
-	local energyAmount = self.Type.Space
+	local energyAmount = self.Data.Space
 	local currentEnergy = self:getCurrentEnergy()
 	if not currentEnergy then
 		return
@@ -376,7 +393,7 @@ function UnitClass:addEnergy()
 end
 
 function UnitClass:removeEnergy()
-	local energyAmount = self.Type.Space
+	local energyAmount = self.Data.Space
 	local currentEnergy = self:getCurrentEnergy()
 	if not currentEnergy then
 		return
@@ -385,7 +402,7 @@ function UnitClass:removeEnergy()
 end
 
 function UnitClass:upgradeMaxEnergy()
-	local energyAmount = self.Type.AddEnergy
+	local energyAmount = self.Data.AddEnergy
 	if not self.Owner then
 		return
 	end
@@ -397,7 +414,7 @@ function UnitClass:upgradeMaxEnergy()
 end
 
 function UnitClass:removeMaxEnergy()
-	local energyAmount = self.Type.AddEnergy
+	local energyAmount = self.Data.AddEnergy
 	if not self.Owner then
 		return
 	end
@@ -431,13 +448,13 @@ function UnitClass.checkForLimit(owner, data)
 	local currentCount = 0
 	if not isBuilding then
 		for _, u in pairs(unitManager.GetQueueAndActiveTroops()) do
-			if u.Owner == owner and u.Type == data then
+			if u.Owner == owner and u.Data == data then
 				currentCount += 1
 			end
 		end
 	else
 		for _, u in pairs(unitManager.GetAllBuildings()) do
-			if u.Owner == owner and u.Type == data then
+			if u.Owner == owner and u.Data == data then
 				currentCount += 1
 			end
 		end

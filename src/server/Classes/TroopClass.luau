@@ -21,6 +21,9 @@ local unitManager = require(modules.UnitManager)
 local assets = ReplicatedStorage.Assets
 local uiAssets = assets.UI
 local modelAssets = assets.Models
+local effectAssets = assets.Effects
+
+local damageBoostAura = effectAssets.DamageBoost
 
 --=========================================
 
@@ -28,9 +31,11 @@ function troop.New(troopType, owner, model)
 	local self = setmetatable({}, troop)
 
 	self.Kind = "Troop"
-	self.Type = troopData[troopType]
+	self.Active = true
+	self.Data = troopData[troopType]
 	self.Model = model
-	self.Health = self.Type.MaxHealth
+	self.Health = self.Data.MaxHealth
+	self.Damage = self.Data["Damage"] or nil
 	self.unitsInRange = {}
 	self.Connections = {}
 
@@ -57,7 +62,7 @@ end
 function troop:Setup()
 	local model = self.Model
 	local primaryPart = model.PrimaryPart
-	local maxHealth = self.Type.MaxHealth
+	local maxHealth = self.Data.MaxHealth
 
 	-- Value objects for ownership and state.
 	local ownerValue = Instance.new("ObjectValue")
@@ -78,17 +83,17 @@ function troop:Setup()
 	local healthBar = uiAssets.HealthBar:Clone()
 	healthBar.Size = UDim2.fromScale(1 + maxHealth * 0.05, 1)
 	healthBar.Parent = primaryPart
-	healthBar.Frame.Fill.Size = UDim2.fromScale(self.Health / self.Type.MaxHealth, 1)
+	healthBar.Frame.Fill.Size = UDim2.fromScale(self.Health / self.Data.MaxHealth, 1)
 	healthBar.Enabled = false
 
 	-- Humanoid setup.
 	local humanoid = modelAssets.Humanoid:Clone()
-	if self.Type.Flying == true then
+	if self.Data.Flying == true then
 		humanoid.HipHeight = 8
 	end
 	humanoid.Name = "Humanoid"
 	humanoid.Parent = model
-	humanoid.WalkSpeed = self.Type.Speed
+	humanoid.WalkSpeed = self.Data.Speed
 
 	-- Selection ring.
 	local selectPart = Instance.new("Part")
@@ -118,9 +123,9 @@ function troop:Setup()
 	weld.Part1 = selectPart
 	weld.Parent = selectPart
 
-	if self.Type.Range then
+	if self.Data.Range then
 		local rangeVisual = uiAssets.RangeVisual:Clone()
-		rangeVisual.Size = Vector3.new(self.Type.Range * 2, 0.001, self.Type.Range * 2)
+		rangeVisual.Size = Vector3.new(self.Data.Range * 2, 0.001, self.Data.Range * 2)
 		rangeVisual.Parent = model
 		rangeVisual.CFrame = primaryPart.CFrame * CFrame.new(0, -primaryPart.Size.Y / 2, 0)
 
@@ -144,14 +149,16 @@ function troop:Setup()
 	self:Optimize()
 	self:SetupRange()
 
-	if self.Type.Behaviour == "Attack" then
+	if self.Data.Behaviour == "Attack" then
 		self:SetupAttack()
-	elseif self.Type.Behaviour == "Heal" or self.Type.Behaviour == "Repair" then
+	elseif self.Data.Behaviour == "Heal" or self.Data.Behaviour == "Repair" then
 		self:SetupHeal()
-	elseif self.Type.Behaviour == "Build" then
+	elseif self.Data.Behaviour == "Build" then
 		self:SetupBuild()
-	elseif self.Type.Behaviour == "Transport" then
+	elseif self.Data.Behaviour == "Transport" then
 		self:SetupTransport()
+	elseif self.Data.Behaviour == "BoostAttack" then
+		self:SetupBoost()
 	end
 end
 
@@ -199,20 +206,30 @@ function troop:MoveTo(pos: Vector3)
 			break
 		end
 
+		if not self.Active then
+			break
+		end
+
 		task.wait(0.2)
 	end
 end
 
 function troop:SetupRange()
-	local range = self.Type.Range
+	local range = self.Data.Range
 	if not range then
 		return
 	end
 
 	local rangeThread = task.spawn(function()
 		while true do
+			task.wait(0.2)
+
 			if not self.Model or not self.Model.PrimaryPart then
 				break
+			end
+
+			if not self.Active then
+				continue
 			end
 
 			local myPos = self.Model.PrimaryPart.Position
@@ -245,7 +262,7 @@ function troop:SetupRange()
 					continue
 				end
 
-				local otherUnitData = otherUnit.Type
+				local otherUnitData = otherUnit.Data
 				local targetOwner = otherUnit.Owner
 				local targetType = typeObj.Value
 
@@ -264,26 +281,25 @@ function troop:SetupRange()
 
 				if isEnemy then
 					if
-						self.Type.Target == "Enemy"
-						or (self.Type.Target == "EnemyGround" and not otherUnitData.Flying)
-						or (self.Type.Target == "EnemyAir" and otherUnitData.Flying)
-						or (self.Type.Target == "EnemyBuilding" and targetType == "BUILDING")
+						self.Data.Target == "Enemy"
+						or (self.Data.Target == "EnemyGround" and not otherUnitData.Flying)
+						or (self.Data.Target == "EnemyAir" and otherUnitData.Flying)
+						or (self.Data.Target == "EnemyBuilding" and targetType == "BUILDING")
 					then
 						table.insert(self.unitsInRange, otherUnit)
 					end
 				else
-					if self.Type.Target == "Ally" then
+					if self.Data.Target == "Ally" then
 						if self.Owner and targetOwner == self.Owner and targetType == "UNIT" then
 							table.insert(self.unitsInRange, otherUnit)
 						end
-					elseif self.Type.Target == "AllyBuilding" then
+					elseif self.Data.Target == "AllyBuilding" then
 						if self.Owner and targetOwner == self.Owner and targetType == "BUILDING" then
 							table.insert(self.unitsInRange, otherUnit)
 						end
 					end
 				end
 			end
-			task.wait(0.2)
 		end
 	end)
 
@@ -320,9 +336,12 @@ end
 function troop:SetupAttack()
 	task.spawn(function()
 		while true do
-			task.wait(self.Type.Cooldown)
+			task.wait(self.Data.Cooldown)
 			if not self.Model then
 				return
+			end
+			if not self.Active then
+				continue
 			end
 
 			local target = nil
@@ -347,9 +366,9 @@ function troop:SetupAttack()
 
 			if target then
 				self:Bullet(target.Model.PrimaryPart.Position)
-				target:TakeDamage(self.Type.Damage)
+				target:TakeDamage(self.Damage)
 				self:LookAt(target)
-				if self.Type.SplashDmg == true and self.Model and self.Model.PrimaryPart then
+				if self.Data.SplashDmg == true and self.Model and self.Model.PrimaryPart then
 					local explosionCenter = target.Model
 						and target.Model.PrimaryPart
 						and target.Model.PrimaryPart.Position
@@ -361,9 +380,9 @@ function troop:SetupAttack()
 								and model.PrimaryPart
 								and u.Owner ~= self.Owner -- Neutral units take splash damage because they are not allied.
 								and (model.PrimaryPart.Position - explosionCenter).Magnitude
-									<= self.Type.SplashRadius
+									<= self.Data.SplashRadius
 							then
-								u:TakeDamage(self.Type.Damage / 2)
+								u:TakeDamage(self.Damage / 2)
 							end
 						end
 					end
@@ -378,9 +397,12 @@ end
 function troop:SetupHeal()
 	task.spawn(function()
 		while true do
-			task.wait(self.Type.Cooldown)
+			task.wait(self.Data.Cooldown)
 			if not self.Model then
 				return
+			end
+			if not self.Active then
+				continue
 			end
 			if not self.Owner then
 				continue
@@ -412,7 +434,7 @@ function troop:SetupHeal()
 					else
 						break
 					end
-				elseif closest.Health >= closest.Type.MaxHealth then
+				elseif closest.Health >= closest.Data.MaxHealth then
 					table.insert(ignoredUnits, closest)
 				else
 					target = closest
@@ -422,7 +444,7 @@ function troop:SetupHeal()
 
 			if target then
 				self:Bullet(target.Model.PrimaryPart.Position)
-				target:Heal(self.Type.Heal)
+				target:Heal(self.Data.Heal)
 				self:LookAt(target)
 			else
 				self:ResetLook()
@@ -449,7 +471,7 @@ function troop:SetupBuild()
 		table.insert(self.Connections, buildBeam)
 
 		while true do
-			task.wait(self.Type.Cooldown)
+			task.wait(self.Data.Cooldown)
 			if not self.Model then
 				return
 			end
@@ -508,6 +530,73 @@ function troop:SetupBuild()
 	end)
 end
 
+function troop:SetupBoost()
+	local boostedUnits = {}
+
+	local boostAttack = self.Data.Behaviour == "BoostAttack" or false
+
+	task.spawn(function()
+		while true do
+			task.wait(1)
+			if not self.Model then
+				return
+			end
+			if not self.Active then
+				continue
+			end
+
+			while #self.unitsInRange > 0 do
+				task.wait(1)
+				for _, u in ipairs(self.unitsInRange) do
+					local idx = table.find(boostedUnits, u)
+					if not idx then
+						table.insert(boostedUnits, u)
+
+						if boostAttack and u.Damage and not u.AttackBoosted then
+							print("Boosting", u.Model.Name)
+							u:Boost("Attack", self.Data.Boost)
+						end
+					end
+				end
+				for _, u in ipairs(boostedUnits) do
+					local idx = table.find(self.unitsInRange, u)
+					if not idx then
+						if boostAttack and u.Damage and u.AttackBoosted then
+							u:RemoveBoost("Attack", self.Data.Boost)
+						end
+						local index = table.find(boostedUnits, u)
+						if index then
+							table.remove(boostedUnits, index)
+						end
+					end
+				end
+			end
+		end
+	end)
+end
+
+function troop:Boost(stat, amount)
+	print("Boosting", self.Model.Name, "stat:", stat, "amount:", amount)
+	if stat == "Attack" and self.Damage and not self.AttackBoosted then
+		local aura = damageBoostAura:Clone()
+		aura.Parent = self.Model.PrimaryPart
+		self.Damage = self.Damage + amount
+		self.AttackBoosted = true
+	end
+end
+
+function troop:RemoveBoost(stat, amount)
+	print("Unboosting", self.Model.Name, "stat:", stat, "amount:", amount)
+	if stat == "Attack" and self.Damage and self.AttackBoosted then
+		local aura = self.Model.PrimaryPart:FindFirstChild("DamageBoost")
+		if aura then
+			aura:Destroy()
+		end
+		self.Damage = self.Damage - amount
+		self.AttackBoosted = false
+	end
+end
+
 function troop:SetupTransport()
 	local folder = Instance.new("Folder")
 	folder.Parent = self.Model
@@ -516,10 +605,10 @@ function troop:SetupTransport()
 	local gui = uiAssets.TransportGui:Clone()
 	gui.Parent = self.Model.PrimaryPart
 	gui.Adornee = self.Model.PrimaryPart
-	gui.TextLabel.Text = "0/" .. self.Type.TransportLimit
+	gui.TextLabel.Text = "0/" .. self.Data.TransportLimit
 	gui.Enabled = true
 end
-
+-- TODO: Movelarken transporta alınca troopu move beamı gitmiyor
 function troop:Transport()
 	local unitsInRange = self.unitsInRange
 	local transportingFolder = self.Model:FindFirstChild("Transporting")
@@ -544,6 +633,10 @@ function troop:Transport()
 
 			local modelSizeY = unitModel.PrimaryPart and unitModel.PrimaryPart.Size.Y or 2
 			unitModel:PivotTo(CFrame.new(spawnPosition + Vector3.new(0, modelSizeY / 2, 0)))
+			local unit = unitManager.GetTroop(unitModel)
+			if unit then
+				unit.Active = true
+			end
 			unitModel.PrimaryPart.Anchored = false
 			val:Destroy()
 
@@ -553,7 +646,7 @@ function troop:Transport()
 		local count = 0
 		local ignoredUnits = {}
 
-		while count < self.Type.TransportLimit and #unitsInRange > 0 do
+		while count < self.Data.TransportLimit and #unitsInRange > 0 do
 			local validTargets = {}
 			for _, u in ipairs(unitsInRange) do
 				if not table.find(ignoredUnits, u) then
@@ -576,7 +669,7 @@ function troop:Transport()
 				else
 					break
 				end
-			elseif u.Type.Carriable ~= true then
+			elseif u.Data.Carriable ~= true then
 				table.insert(ignoredUnits, u)
 			else
 				local index = table.find(unitsInRange, u)
@@ -589,12 +682,13 @@ function troop:Transport()
 				val.Value = u.Model
 
 				u.Model.PrimaryPart.Anchored = true
+				u.Active = false
 				u.Model:PivotTo(CFrame.new(999, 999, 999))
 				count = count + 1
 			end
 		end
 	end
-	gui.TextLabel.Text = #transportingFolder:GetChildren() .. "/" .. self.Type.TransportLimit
+	gui.TextLabel.Text = #transportingFolder:GetChildren() .. "/" .. self.Data.TransportLimit
 end
 
 function troop:Interact(plr)
@@ -604,7 +698,7 @@ function troop:Interact(plr)
 	if self.Owner ~= plr then
 		return
 	end
-	if self.Type.Behaviour == "Transport" then
+	if self.Data.Behaviour == "Transport" then
 		self:Transport()
 	end
 end

@@ -119,7 +119,7 @@ function EventManager.Init(serverController)
 
 	queueEvent.OnServerEvent:Connect(function(plr, building, unit, isAdding)
 		local myBuilding = unitManager.GetBuilding(building)
-		if not myBuilding or myBuilding.Owner ~= plr or not table.find(myBuilding.Type.Behaviour, "Spawn") then
+		if not myBuilding or myBuilding.Owner ~= plr or not table.find(myBuilding.Data.Behaviour, "Spawn") then
 			return
 		end
 

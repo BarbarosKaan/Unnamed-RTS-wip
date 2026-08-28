@@ -40,7 +40,7 @@ function building.checkForLimit(owner, bData)
 	end
 	local currentCount = 0
 	for _, build in pairs(unitManager.GetAllBuildings()) do
-		if build.Owner == owner and build.Type == bData then
+		if build.Owner == owner and build.Data == bData then
 			currentCount += 1
 		end
 	end
@@ -53,10 +53,10 @@ function building.New(buildingType, owner, model, zone)
 	local self = setmetatable({}, building)
 
 	self.Kind = "Building"
-	self.Type = buildingData[buildingType]
+	self.Data = buildingData[buildingType]
 	self.Model = model
 	self.Owner = owner
-	self.Health = math.floor(self.Type.MaxHealth * 0.1)
+	self.Health = math.floor(self.Data.MaxHealth * 0.1)
 	self.BuildProgress = 0
 	self.IsBuilt = false
 	self.Queue = {}
@@ -97,7 +97,7 @@ function building:Setup()
 	local model = self.Model
 	local primaryPart = model.PrimaryPart
 	local floor = model:FindFirstChild("Floor")
-	local maxHealth = self.Type.MaxHealth
+	local maxHealth = self.Data.MaxHealth
 
 	-- Value objects for ownership and state.
 	local ov = Instance.new("ObjectValue")
@@ -124,7 +124,7 @@ function building:Setup()
 	local size = math.min(21, 1 + maxHealth * 0.05)
 	healthBar.Size = UDim2.fromScale(size, 1)
 	healthBar.Parent = primaryPart
-	healthBar.Frame.Fill.Size = UDim2.fromScale(self.Health / self.Type.MaxHealth, 1)
+	healthBar.Frame.Fill.Size = UDim2.fromScale(self.Health / self.Data.MaxHealth, 1)
 	healthBar.Enabled = false
 
 	local buildingProgress = uiAssets.BuildingProgress:Clone()
@@ -155,9 +155,9 @@ function building:Setup()
 	selectPart.CFrame = floor.CFrame * CFrame.new(0, -floor.Size.Y / 2, 0)
 	selectPart.Parent = model
 
-	if self.Type.Range then
+	if self.Data.Range then
 		local rangeVisual = uiAssets.RangeVisual:Clone()
-		rangeVisual.Size = Vector3.new(self.Type.Range * 2, 0.001, self.Type.Range * 2)
+		rangeVisual.Size = Vector3.new(self.Data.Range * 2, 0.001, self.Data.Range * 2)
 		rangeVisual.Parent = model
 		rangeVisual.CFrame = primaryPart.CFrame * CFrame.new(0, -primaryPart.Size.Y / 2, 0)
 
@@ -168,7 +168,7 @@ function building:Setup()
 		weld2.Parent = rangeVisual
 	end
 
-	if table.find(self.Type.Behaviour, "Spawn") then
+	if table.find(self.Data.Behaviour, "Spawn") then
 		local queueProgress = uiAssets.QueueProgress:Clone()
 		queueProgress.Parent = model.PrimaryPart
 		queueProgress.Adornee = model.PrimaryPart
@@ -208,38 +208,38 @@ end
 
 function building:BuildingFinish()
 	self.BuildProgress = 100
-	if table.find(self.Type.Behaviour, "Spawn") then
+	if table.find(self.Data.Behaviour, "Spawn") then
 		self:SetupQueue()
 	end
-	if self.Type.Range then
+	if self.Data.Range then
 		self:SetupRange()
 	end
-	if table.find(self.Type.Behaviour, "Attack") then
+	if table.find(self.Data.Behaviour, "Attack") then
 		self:SetupAttack()
 	end
-	if table.find(self.Type.Behaviour, "Heal") then
+	if table.find(self.Data.Behaviour, "Heal") then
 		self:SetupHeal()
 	end
-	if table.find(self.Type.Behaviour, "GiveCash") then
+	if table.find(self.Data.Behaviour, "GiveCash") then
 		self:SetupCash()
 	end
-	if table.find(self.Type.Behaviour, "Tower") then
+	if table.find(self.Data.Behaviour, "Tower") then
 		self:ToggleWall()
 	end
 
 	-- Increase limits only when the building has an owner.
 	if self.Owner then
-		if table.find(self.Type.Behaviour, "AddEnergy") then
+		if table.find(self.Data.Behaviour, "AddEnergy") then
 			self:upgradeMaxEnergy()
 		end
-		if table.find(self.Type.Behaviour, "AddPopulation") then
+		if table.find(self.Data.Behaviour, "AddPopulation") then
 			self:upgradeMaxPopulation()
 		end
 	end
 
 	self.IsBuilt = true
 	self.Model:FindFirstChild("Built").Value = true
-	self.Health = self.Type.MaxHealth
+	self.Health = self.Data.MaxHealth
 	self:Heal(0)
 
 	local buildingProgress = self.Model.PrimaryPart:FindFirstChild("BuildingProgress")
@@ -279,11 +279,11 @@ function building:SetupQueue()
 
 				local tween = TweenService:Create(
 					fill,
-					TweenInfo.new(self.Type.SpawnTime, Enum.EasingStyle.Linear),
+					TweenInfo.new(self.Data.SpawnTime, Enum.EasingStyle.Linear),
 					{ Size = UDim2.fromScale(1, 1) }
 				)
 				tween:Play()
-				task.wait(self.Type.SpawnTime)
+				task.wait(self.Data.SpawnTime)
 
 				if not self.Model or not self.Owner then
 					return
@@ -303,7 +303,7 @@ function building:AddQueue(unitType)
 		return
 	end
 	local unit = troopData[unitType]
-	if not unit or not table.find(self.Type.Spawnables, unit) then
+	if not unit or not table.find(self.Data.Spawnables, unit) then
 		print("Invalid unit type")
 		return
 	end
@@ -361,13 +361,13 @@ function building:Spawn(unit)
 
 	local rangePart = self.Model:FindFirstChild("RangeVisual") or nil
 
-	local pos = self.Type.SpawnOnWater
+	local pos = self.Data.SpawnOnWater
 			and self:getSafeSpawnPosition("Water", self.Owner, rangePart, self.Model.PrimaryPart)
 		or self:getSafeSpawnPosition("Ground", self.Owner, rangePart, self.Model.PrimaryPart)
 
 	if not pos then
 		print("No valid spawn position found for unit:", unitInfo.Name)
-		return
+		pos = self.Model.PrimaryPart.Position + Vector3.new(0, 2, 0)
 	end
 
 	local clone = modelTemplate:Clone()
@@ -379,7 +379,7 @@ function building:Spawn(unit)
 end
 
 function building:SetupRange()
-	local range = self.Type.Range
+	local range = self.Data.Range
 	if not range then
 		return
 	end
@@ -424,9 +424,9 @@ function building:SetupRange()
 				local targetOwner = otherUnit.Owner
 				local targetType = typeObj.Value
 
-				local isAttack = table.find(self.Type.Behaviour, "Attack")
-				local isHeal = table.find(self.Type.Behaviour, "Heal")
-				local isTower = table.find(self.Type.Behaviour, "Tower")
+				local isAttack = table.find(self.Data.Behaviour, "Attack")
+				local isHeal = table.find(self.Data.Behaviour, "Heal")
+				local isTower = table.find(self.Data.Behaviour, "Tower")
 
 				if isAttack then
 					local isEnemy = false
@@ -457,7 +457,7 @@ function building:SetupRange()
 						self.Owner
 						and targetOwner == self.Owner
 						and targetType == "BUILDING"
-						and otherUnit.Type.Name == "Tower"
+						and otherUnit.Data.Name == "Tower"
 					then
 						table.insert(self.unitsInRange, otherUnit)
 					end
@@ -472,7 +472,7 @@ end
 
 function building:SetupAttack()
 	task.spawn(function()
-		while task.wait(self.Type.Cooldown) do
+		while task.wait(self.Data.Cooldown) do
 			if not self.Model then
 				return
 			end
@@ -499,7 +499,7 @@ function building:SetupAttack()
 
 			if target then
 				self:Bullet(target.Model.PrimaryPart.Position)
-				target:TakeDamage(self.Type.Damage)
+				target:TakeDamage(self.Data.Damage)
 			end
 		end
 	end)
@@ -507,7 +507,7 @@ end
 
 function building:SetupHeal()
 	task.spawn(function()
-		while task.wait(self.Type.Cooldown) do
+		while task.wait(self.Data.Cooldown) do
 			if not self.Model then
 				return
 			end
@@ -541,7 +541,7 @@ function building:SetupHeal()
 					else
 						break
 					end
-				elseif closest.Health >= closest.Type.MaxHealth then
+				elseif closest.Health >= closest.Data.MaxHealth then
 					table.insert(ignoredUnits, closest)
 				else
 					target = closest
@@ -551,15 +551,15 @@ function building:SetupHeal()
 
 			if target then
 				self:Bullet(target.Model.PrimaryPart.Position)
-				target:Heal(self.Type.Heal)
+				target:Heal(self.Data.Heal)
 			end
 		end
 	end)
 end
 
 function building:SetupCash()
-	local cashPerTick = self.Type.CashPerTick
-	local cashWait = self.Type.CashCooldown
+	local cashPerTick = self.Data.CashPerTick
+	local cashWait = self.Data.CashCooldown
 	if self.Owner then
 		local cashPerMin = (60 / cashWait) * cashPerTick
 		local cpmVal = self.Owner and self.Owner:FindFirstChild("stats") and self.Owner.stats:FindFirstChild("CPM")
@@ -698,7 +698,7 @@ function building:Interact(plr)
 		return
 	end
 
-	local isTower = table.find(self.Type.Behaviour, "Tower")
+	local isTower = table.find(self.Data.Behaviour, "Tower")
 	if isTower then
 		self:ToggleWall()
 	end
@@ -712,7 +712,7 @@ function building:TakeDamage(amount)
 	local healthBar = self.Model.PrimaryPart:FindFirstChild("HealthBar")
 	if healthBar then
 		local healthLabel = healthBar.Frame.HealthLabel
-		local maxHealth = self.Type.MaxHealth
+		local maxHealth = self.Data.MaxHealth
 		if not self.IsBuilt then
 			maxHealth = math.floor(maxHealth * 0.1)
 		end
@@ -729,14 +729,14 @@ function building:TakeDamage(amount)
 end
 
 function building:Heal(amount)
-	self.Health = math.min(self.Health + amount, self.Type.MaxHealth)
+	self.Health = math.min(self.Health + amount, self.Data.MaxHealth)
 
 	local healthBar = self.Model.PrimaryPart:FindFirstChild("HealthBar")
 	if healthBar then
 		local healthLabel = healthBar.Frame.HealthLabel
-		healthBar.Frame.Fill.Size = UDim2.fromScale(self.Health / self.Type.MaxHealth, 1)
-		healthLabel.Text = math.floor(self.Health) .. "/" .. self.Type.MaxHealth
-		if self.Health >= self.Type.MaxHealth then
+		healthBar.Frame.Fill.Size = UDim2.fromScale(self.Health / self.Data.MaxHealth, 1)
+		healthLabel.Text = math.floor(self.Health) .. "/" .. self.Data.MaxHealth
+		if self.Health >= self.Data.MaxHealth then
 			healthBar.Enabled = false
 		end
 	end
@@ -770,24 +770,24 @@ function building:Destroy()
 	end
 
 	if self.Owner then
-		if table.find(self.Type.Behaviour, "AddEnergy") then
+		if table.find(self.Data.Behaviour, "AddEnergy") then
 			self:removeMaxEnergy()
 		end
-		if table.find(self.Type.Behaviour, "AddPopulation") then
+		if table.find(self.Data.Behaviour, "AddPopulation") then
 			self:removeMaxPopulation()
 		end
-		if table.find(self.Type.Behaviour, "GiveCash") then
-			local cashPerTick = self.Type.CashPerTick
-			local cashWait = self.Type.CashCooldown
+		if table.find(self.Data.Behaviour, "GiveCash") then
+			local cashPerTick = self.Data.CashPerTick
+			local cashWait = self.Data.CashCooldown
 			local cashPerMin = (60 / cashWait) * cashPerTick
 			local cpmVal = self.Owner and self.Owner:FindFirstChild("stats") and self.Owner.stats:FindFirstChild("CPM")
 			cpmVal.Value -= cashPerMin
 		end
-		self:removeEnergy(self.Type.Space)
+		self:removeEnergy(self.Data.Space)
 		removeSelectionEvent:FireClient(self.Owner, self.Model)
 	end
 
-	if self.Type.Name == "HQ" then
+	if self.Data.Name == "HQ" then
 		castleDestroyed:Fire(self)
 	end
 
