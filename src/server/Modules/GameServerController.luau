@@ -9,15 +9,13 @@ local eventManager = require(server.Modules.EventService)
 local gameStartedVal = game:GetService("ReplicatedStorage").GameStarted
 local isGameActive = false
 
-function PickMap()
-	local mapsFolder = game:GetService("ReplicatedStorage").Assets.Models.Maps[GameServerController.GetGameMode()]
-	local maps = mapsFolder:GetChildren()
-	local randomIndex = math.random(1, #maps)
-	return maps[randomIndex]
+local chosenMap = nil
+
+function GameServerController.SetChosenMap(map)
+	chosenMap = map
 end
 
-function LoadMap()
-	local map = PickMap()
+function GameServerController.LoadMap(map)
 	local mapClone = map:Clone()
 	local oldBaseplate = workspace:FindFirstChild("Baseplate")
 	if oldBaseplate then
@@ -44,7 +42,7 @@ function GameServerController.StartGame()
 	if isGameActive then
 		return
 	end
-	LoadMap()
+	GameServerController.LoadMap(chosenMap)
 	isGameActive = true
 	playerAddedService.Start()
 	gameStartedVal.Value = true

@@ -11,8 +11,6 @@ local camera = workspace.CurrentCamera
 local plr = players.LocalPlayer
 local mouse = plr:GetMouse()
 
-mouse.TargetFilter = workspace.Walls
-
 local buildEvent = ReplicatedStorage.Remotes.BuildEvent
 local enoughCashRemote = ReplicatedStorage.Remotes.EnoughCash
 local enoughEnergyRemote = ReplicatedStorage.Remotes.EnoughEnergy
@@ -183,6 +181,8 @@ end
 
 -- Start a new placement session for the selected building.
 function PlacementManager.Start(buildingName)
+	mouse.TargetFilter = workspace.Walls
+
 	if placementConn then
 		return
 	end

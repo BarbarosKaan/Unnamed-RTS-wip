@@ -9,6 +9,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 --// Variables
 local sharedFolder = ReplicatedStorage.Shared
+local remotesFolder = ReplicatedStorage.Remotes
 local dataFolder = sharedFolder.Data
 local server = ServerScriptService.Server
 local modules = server.Modules
@@ -16,6 +17,9 @@ local modules = server.Modules
 --// Modules
 local troopData = require(dataFolder.TroopData)
 local unitManager = require(modules.UnitManager)
+
+--// Remotes
+local removeMoveBeam = remotesFolder.RemoveMoveBeam
 
 --// Assets
 local assets = ReplicatedStorage.Assets
@@ -553,7 +557,6 @@ function troop:SetupBoost()
 						table.insert(boostedUnits, u)
 
 						if boostAttack and u.Damage and not u.AttackBoosted then
-							print("Boosting", u.Model.Name)
 							u:Boost("Attack", self.Data.Boost)
 						end
 					end
@@ -680,6 +683,8 @@ function troop:Transport()
 				local val = Instance.new("ObjectValue")
 				val.Parent = transportingFolder
 				val.Value = u.Model
+
+				removeMoveBeam:FireClient(self.Owner, u.Model)
 
 				u.Model.PrimaryPart.Anchored = true
 				u.Active = false

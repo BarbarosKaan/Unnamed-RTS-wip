@@ -72,6 +72,8 @@ local stateLabel = infoFrame:WaitForChild("State")
 local returnButton = infoFrame:WaitForChild("ReturnButton")
 local stayButton = infoFrame:WaitForChild("StayButton")
 
+local votingScreenGui = playerGui:WaitForChild("VotingGui")
+
 local isCooldown = false
 local lastCooldownThread = nil
 
@@ -317,7 +319,14 @@ end
 
 function GuiManager.OnVotingStarted()
 	HUD.Visible = false
+	votingScreenGui.Enabled = true
 	print("Voting started")
+	return votingScreenGui
+end
+
+function GuiManager.OnVotingEnded()
+	votingScreenGui.Enabled = false
+	print("Voting ended")
 end
 
 -- Show a short red notification in the HUD.

@@ -105,7 +105,7 @@ local function onPlayerAdded(plr)
 
 		local cash = Instance.new("IntValue")
 		cash.Name = "Cash"
-		cash.Value = 100
+		cash.Value = 10000
 		cash.Parent = stats
 
 		local cpm = Instance.new("IntValue")

@@ -8,12 +8,16 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
 
 local Modules = StarterPlayerScripts.Client:WaitForChild("Modules")
+
 local Remotes = ReplicatedStorage:WaitForChild("Remotes")
+local moveEvent = Remotes.MoveEvent
+local removeSelectionEvent = Remotes.RemoveSelectionEvent
+local interactEvent = Remotes.InteractEvent
+local removeMoveBeamEvent = Remotes.RemoveMoveBeam
+
 local plr = Players.LocalPlayer
 local mouse = plr:GetMouse()
 local camera = workspace.CurrentCamera
-
-mouse.TargetFilter = workspace:WaitForChild("Walls")
 
 local loadedModules = {}
 local initializedModules = {}
@@ -58,6 +62,8 @@ function ClientController.StartPlacementSystem()
 	local modules = loadModules()
 	local PlacementManager = modules.PlacementManager
 	local GuiManager = modules.GuiManager
+
+	mouse.TargetFilter = workspace:WaitForChild("Walls")
 
 	local gamegui = plr:WaitForChild("PlayerGui"):WaitForChild("GameGui")
 	local farmZones = workspace:WaitForChild("FarmZones")
@@ -133,9 +139,6 @@ function ClientController.StartUnitSystem()
 	local SelectionManager = modules.SelectionManager
 	local VisualManager = modules.VisualManager
 	local GuiManager = modules.GuiManager
-	local moveEvent = Remotes.MoveEvent
-	local removeSelectionEvent = Remotes.RemoveSelectionEvent
-	local interactEvent = Remotes.InteractEvent
 
 	local unitsFolder = workspace:WaitForChild("Units")
 	local currentHoveredUnit = nil
@@ -302,6 +305,13 @@ function ClientController.StartUnitSystem()
 		SelectionManager.DeselectUnit(unit)
 	end)
 
+	removeMoveBeamEvent.OnClientEvent:Connect(function(unit)
+		if not unit then
+			return
+		end
+		VisualManager.ClearBeams(unit)
+	end)
+
 	UserInputService.InputBegan:Connect(function(input, gameProcessed)
 		if gameProcessed then
 			return
@@ -356,8 +366,8 @@ function ClientController.StartVoting()
 	end
 
 	local modules = loadModules()
-	local GuiManager = modules.GuiManager
-	GuiManager.OnVotingStarted()
+	local VotingManager = modules.VotingClientManager
+	VotingManager.StartVoting()
 end
 
 function ClientController.StartGame()
