@@ -19,14 +19,19 @@ function manager.UnregisterTroop(troopModel)
 end
 
 function manager.RegisterTroopQueue(troopObject, owner)
-	troopObject.Owner = owner
-	table.insert(queueTroops, troopObject)
+	table.insert(queueTroops, {
+		Data = troopObject,
+		Owner = owner,
+	})
 end
 
-function manager.UnregisterTroopQueue(troopObject)
-	local idx = table.find(queueTroops, troopObject)
-	if idx then
-		table.remove(queueTroops, idx)
+function manager.UnregisterTroopQueue(troopObject, owner)
+	for idx = #queueTroops, 1, -1 do
+		local queuedTroop = queueTroops[idx]
+		if queuedTroop.Data == troopObject and queuedTroop.Owner == owner then
+			table.remove(queueTroops, idx)
+			return
+		end
 	end
 end
 

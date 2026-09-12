@@ -124,7 +124,7 @@ local data = {
 	Bannerman = {
 		Name = "Bannerman",
 		Boost = 10,
-		Range = 8,
+		Range = 12,
 		Speed = 5,
 		MaxHealth = 35,
 		Behaviour = "BoostAttack",
@@ -132,7 +132,7 @@ local data = {
 		Carriable = true,
 		Target = "Ally",
 		Space = 1,
-		Limit = 5,
+		Limit = 1,
 		Description = "A unit that boosts ally attacks",
 	},
 	Builder = {

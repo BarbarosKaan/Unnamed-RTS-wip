@@ -50,6 +50,9 @@ local lastRSConn = nil
 local notificationFrame = gameGui:WaitForChild("NotificationFrame")
 local redNotification = notificationFrame:WaitForChild("RedNotification")
 local greenNotification = notificationFrame:WaitForChild("GreenNotification")
+local lastRedNotification = nil
+local lastRedNotificationText = nil
+local lastRedNotificationCount = 1
 
 local buildingPlacing = gameGui:WaitForChild("BuildingPlacing")
 local warningTemp = guiAssets:WaitForChild("WarningTemplate")
@@ -84,7 +87,7 @@ local function startCooldown()
 		lastCooldownThread = nil
 	end
 	isCooldown = true
-	lastCooldownThread = task.delay(0.2, function()
+	lastCooldownThread = task.delay(0.1, function()
 		isCooldown = false
 	end)
 end
@@ -331,14 +334,29 @@ end
 
 -- Show a short red notification in the HUD.
 function GuiManager.NewRedNotification(text)
+	if lastRedNotification and lastRedNotification.Parent and lastRedNotificationText == text then
+		lastRedNotificationCount += 1
+		lastRedNotification.Text = text .. " (x" .. lastRedNotificationCount .. ")"
+		return
+	end
+
 	local notification = redNotification:Clone()
 	notification.Visible = true
 	notification.Text = text
 	notification.Parent = notificationFrame
+	lastRedNotification = notification
+	lastRedNotificationText = text
+	lastRedNotificationCount = 1
 	task.delay(3, function()
-		notification:Destroy()
+		if lastRedNotification == notification then
+			notification:Destroy()
+			lastRedNotification = nil
+			lastRedNotificationText = nil
+			lastRedNotificationCount = 1
+		elseif notification.Parent then
+			notification:Destroy()
+		end
 	end)
-	return
 end
 
 -- Show a short green notification in the HUD.

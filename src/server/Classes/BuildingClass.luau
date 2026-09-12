@@ -30,23 +30,6 @@ local troopClass = require(classes.TroopClass)
 local uiAssets = ReplicatedStorage.Assets.UI
 local modelAssets = ReplicatedStorage.Assets.Models
 
-function building.checkForLimit(owner, bData)
-	if not owner then
-		return false
-	end
-	local limit = bData.Limit
-	if not limit then
-		return false
-	end
-	local currentCount = 0
-	for _, build in pairs(unitManager.GetAllBuildings()) do
-		if build.Owner == owner and build.Data == bData then
-			currentCount += 1
-		end
-	end
-	return currentCount >= limit
-end
-
 --=========================================
 
 function building.New(buildingType, owner, model, zone)
@@ -334,7 +317,7 @@ function building:RemoveQueue(unitType)
 
 	table.remove(self.Queue, targetIdx)
 	troopClass:removePopulation(targetData.Space, self.Owner)
-	unitManager.UnregisterTroopQueue(targetData)
+	unitManager.UnregisterTroopQueue(targetData, self.Owner)
 	return true
 end
 
@@ -374,7 +357,7 @@ function building:Spawn(unit)
 	clone.Parent = workspace.Units
 	clone:PivotTo(CFrame.new(pos))
 
-	unitManager.UnregisterTroopQueue(unitInfo)
+	unitManager.UnregisterTroopQueue(unitInfo, self.Owner)
 	troopClass.New(unitInfo.Name, self.Owner, clone)
 end
 

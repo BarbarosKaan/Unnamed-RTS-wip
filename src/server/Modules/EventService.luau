@@ -171,7 +171,7 @@ function EventManager.Init(serverController)
 			return
 		end
 
-		local isLimit = buildingClass.checkForLimit(plr, data)
+		local isLimit = UnitClass.checkForLimit(plr, data)
 		if isLimit then
 			print("limit")
 			return
