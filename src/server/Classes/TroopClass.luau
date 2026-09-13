@@ -583,7 +583,8 @@ function troop:Boost(stat, amount)
 	if stat == "Attack" and self.Damage and not self.AttackBoosted then
 		local aura = damageBoostAura:Clone()
 		aura.Parent = self.Model.PrimaryPart
-		self.Damage = self.Damage + amount
+		local currentDamage = self.Damage
+		self.Damage = currentDamage * (1 + amount / 100)
 		self.AttackBoosted = true
 	end
 end
@@ -595,7 +596,7 @@ function troop:RemoveBoost(stat, amount)
 		if aura then
 			aura:Destroy()
 		end
-		self.Damage = self.Damage - amount
+		self.Damage = self.Damage / (1 + amount / 100)
 		self.AttackBoosted = false
 	end
 end
