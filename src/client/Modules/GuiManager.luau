@@ -39,6 +39,8 @@ local buttonsFrame = selectionContainer:WaitForChild("Buttons")
 local sellButton = buttonsFrame:WaitForChild("SellButton")
 local interactButton = buttonsFrame:WaitForChild("InteractButton")
 
+local mobileXButton = gameGui:WaitForChild("MobileXButton")
+
 local spawnGuiTemplate = guiAssets:WaitForChild("SpawnGuiTemplate")
 local spawnBtnTemplate = guiAssets:WaitForChild("SpawnTemplate")
 local queueBtnTemplate = guiAssets:WaitForChild("QueueTemplate")
@@ -56,6 +58,7 @@ local lastRedNotificationCount = 1
 
 local buildingPlacing = gameGui:WaitForChild("BuildingPlacing")
 local warningTemp = guiAssets:WaitForChild("WarningTemplate")
+local mobileBuildingButtons = gameGui:WaitForChild("MobileBuildingButtons")
 local lastWarning = {}
 
 local HUD = gameGui:WaitForChild("HUD")
@@ -255,6 +258,12 @@ function GuiManager.OnGameStarted()
 			end
 		end
 	end)
+	mobileXButton.MouseButton1Click:Connect(function()
+		GuiManager.CloseAllSpawnGuis()
+		SelectionManager.ClearAll()
+		clearSelecteds()
+		mobileXButton.Visible = false
+	end)
 	notificationEvent.OnClientEvent:Connect(function(color, msg)
 		if color == "Red" then
 			GuiManager.NewRedNotification(msg)
@@ -380,6 +389,7 @@ function GuiManager.OpenSpawnGui(buildingModel)
 	if not table.find(buildingData[buildingModel.Name].Behaviour, "Spawn") then
 		return
 	end
+	mobileXButton.Visible = true
 	if connectedGuis[buildingModel] then
 		connectedGuis[buildingModel].Gui.Enabled = true
 		return
@@ -534,7 +544,7 @@ end
 function GuiManager.SelectNew(newSelected, allSelecteds)
 	-- Clear old selection icons first to avoid overlap.
 	clearSelecteds()
-
+	mobileXButton.Visible = true
 	selectionContainer.Visible = true
 	selectedAmount.Text = "x" .. #allSelecteds
 
@@ -691,11 +701,44 @@ function GuiManager.HoverEnd()
 end
 
 -- Show the placement overlay when a building is being placed.
-function GuiManager.BuildingStart()
+function GuiManager.BuildingStart(isMobile)
 	buildingPlacing.Visible = true
 	for w, instance in lastWarning do
 		instance:Destroy()
 		lastWarning[w] = nil
+	end
+	if isMobile then
+		local placeText = buildingPlacing:FindFirstChild("PlaceText")
+		if placeText then
+			placeText.Text = "[✓] Place"
+		end
+		local cancelText = buildingPlacing:FindFirstChild("CancelText")
+		if cancelText then
+			cancelText.Text = "[X] Cancel"
+		end
+		local rotateText = buildingPlacing:FindFirstChild("RotateText")
+		if rotateText then
+			rotateText.Text = "[⤵] Rotate"
+		end
+
+		mobileBuildingButtons.Visible = true
+		return mobileBuildingButtons
+	else
+		local placeText = buildingPlacing:FindFirstChild("PlaceText")
+		if placeText then
+			placeText.Text = "[Click] Place"
+		end
+		local cancelText = buildingPlacing:FindFirstChild("CancelText")
+		if cancelText then
+			cancelText.Text = "[E] Cancel"
+		end
+		local rotateText = buildingPlacing:FindFirstChild("RotateText")
+		if rotateText then
+			rotateText.Text = "[R] Rotate"
+		end
+
+		mobileBuildingButtons.Visible = false
+		return nil
 	end
 end
 
@@ -732,6 +775,7 @@ function GuiManager.BuildingEnd()
 		instance:Destroy()
 		lastWarning[w] = nil
 	end
+	mobileBuildingButtons.Visible = false
 end
 
 return GuiManager

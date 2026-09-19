@@ -99,9 +99,8 @@ function ClientController.StartPlacementSystem()
 			button.MouseButton1Click:Connect(function()
 				if PlacementManager.IsPlacing() then
 					PlacementManager.Cancel()
-					onBuildingEnd()
 				end
-				PlacementManager.Start(button.Text)
+				PlacementManager.Start(button.Text, onBuildingEnd)
 				onBuildingStart(button.Text)
 			end)
 		end
@@ -117,12 +116,8 @@ function ClientController.StartPlacementSystem()
 
 		if input.KeyCode == Enum.KeyCode.E then
 			PlacementManager.Cancel()
-			onBuildingEnd()
 		elseif input.UserInputType == Enum.UserInputType.MouseButton1 then
-			local success = PlacementManager.Place()
-			if success then
-				onBuildingEnd()
-			end
+			PlacementManager.Place()
 		elseif input.KeyCode == Enum.KeyCode.R then
 			PlacementManager.Rotate()
 		end
@@ -141,6 +136,7 @@ function ClientController.StartUnitSystem()
 	local GuiManager = modules.GuiManager
 
 	local unitsFolder = workspace:WaitForChild("Units")
+	local placementManager = modules.PlacementManager
 	local currentHoveredUnit = nil
 	local selectionBox = plr.PlayerGui:WaitForChild("GameGui"):WaitForChild("SelectionBox")
 	local dragStart = nil
@@ -294,6 +290,62 @@ function ClientController.StartUnitSystem()
 		end
 	end
 
+	local function handleMobileTap(positions, gameProcessed)
+		if gameProcessed or placementManager.IsPlacing() then
+			return
+		end
+		local position = positions[1]
+		if not position then
+			return
+		end
+
+		local ray = camera:ScreenPointToRay(position.X, position.Y)
+		local rayParams = RaycastParams.new()
+		rayParams.FilterType = Enum.RaycastFilterType.Exclude
+		rayParams.FilterDescendantsInstances = { plr.Character }
+
+		local result = workspace:Raycast(ray.Origin, ray.Direction * 1000, rayParams)
+		if not result then
+			return
+		end
+
+		local target = result.Instance:FindFirstAncestorOfClass("Model")
+		if target and target:FindFirstChild("Owner") and target.Owner.Value == plr then
+			SelectionManager.SelectUnit(target)
+
+			if target:FindFirstChild("Type") and target.Type.Value == "BUILDING" then
+				if GuiManager.IsSpawnGuiOpen(target) then
+					GuiManager.CloseSpawnGui(target)
+				else
+					GuiManager.OpenSpawnGui(target)
+				end
+			end
+			return
+		end
+
+		if #SelectionManager.SelectedUnits == 0 then
+			return
+		end
+
+		local currentCenter = getCenterOfUnits(SelectionManager.SelectedUnits)
+		for _, unit in ipairs(SelectionManager.SelectedUnits) do
+			if unit.PrimaryPart and unit:FindFirstChild("Type") and unit.Type.Value == "UNIT" then
+				local finalUnitTarget = result.Position
+				if currentCenter then
+					local offset = unit.PrimaryPart.Position - currentCenter
+					if offset.Magnitude > 5 then
+						offset = offset.Unit * 2
+					end
+					finalUnitTarget += Vector3.new(offset.X, 0, offset.Z)
+				end
+
+				VisualManager.ClearBeams(unit)
+				VisualManager.AddWaypoint(unit, finalUnitTarget)
+				moveEvent:FireServer(unit, { finalUnitTarget }, true)
+			end
+		end
+	end
+
 	removeSelectionEvent.OnClientEvent:Connect(function(unit)
 		if not unit then
 			return
@@ -354,6 +406,10 @@ function ClientController.StartUnitSystem()
 			handleRightClick()
 		end
 	end)
+
+	if UserInputService.TouchEnabled then
+		UserInputService.TouchTap:Connect(handleMobileTap)
+	end
 end
 
 function ClientController.IsGameStarted()
