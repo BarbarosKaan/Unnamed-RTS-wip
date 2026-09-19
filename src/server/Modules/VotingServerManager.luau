@@ -13,10 +13,42 @@ local SendVoteEvent = remotes:WaitForChild("SendVoteEvent")
 local UpdateVotesEvent = remotes:WaitForChild("UpdateVotesEvent")
 
 local countdownThread
+local votingTimer = nil
+local votingActive = false
+local sendVoteConnection
 
 local ChosenMaps = {}
 local PlayerVotes = {}
 local Skippers = {}
+
+local function sendCurrentVotingState(player)
+	if not votingActive or not votingTimer or not player.Parent then
+		return
+	end
+
+	local skipNeeded = math.ceil(#Players:GetPlayers() * 0.5)
+	ToggleVotingEvent:FireClient(player, true, ChosenMaps, votingTimer, skipNeeded)
+	local voteCounts = {}
+	for _, mapName in ipairs(ChosenMaps) do
+		voteCounts[mapName] = 0
+	end
+	for _, mapName in pairs(PlayerVotes) do
+		voteCounts[mapName] = (voteCounts[mapName] or 0) + 1
+	end
+	local skipCount = 0
+	for _, isSkipping in pairs(Skippers) do
+		if isSkipping then
+			skipCount += 1
+		end
+	end
+	UpdateVotesEvent:FireClient(player, voteCounts, skipCount, skipNeeded)
+end
+
+Players.PlayerAdded:Connect(function(player)
+	task.defer(function()
+		sendCurrentVotingState(player)
+	end)
+end)
 
 --TODO:IMPLEMENT CLIENT VOTING GUI AND SERVER VOTING LOGIC
 
@@ -37,6 +69,7 @@ function IsSkip()
 end
 
 function ProcessFinish()
+	votingActive = false
 	local winner = VotingServer.GetWinningMap()
 	if winner then
 		print("Winning map is: " .. winner)
@@ -164,6 +197,7 @@ function VotingServer.StartTimer()
 		ProcessFinish()
 		timerInstance:Destroy()
 	end)
+	votingTimer = timerInstance
 	return timerInstance
 end
 
@@ -177,6 +211,7 @@ function VotingServer.StopTimer()
 	if timerInstance then
 		timerInstance:Destroy()
 	end
+	votingTimer = nil
 end
 
 function VotingServer.HowManySkipsNeeded()
@@ -195,6 +230,11 @@ function VotingServer.SkipVote(player)
 end
 
 function VotingServer.StartVoting()
+	if sendVoteConnection then
+		sendVoteConnection:Disconnect()
+	end
+	votingActive = true
+	ChosenMaps = {}
 	ChosenMaps = VotingServer.GetRandomMaps()
 	PlayerVotes = {}
 	Skippers = {}
@@ -203,7 +243,10 @@ function VotingServer.StartVoting()
 
 	ToggleVotingEvent:FireAllClients(true, ChosenMaps, timer, skipNeeded)
 
-	SendVoteEvent.OnServerEvent:Connect(function(player, mapName)
+	sendVoteConnection = SendVoteEvent.OnServerEvent:Connect(function(player, mapName)
+		if not votingActive then
+			return
+		end
 		if mapName == "Skip" then
 			VotingServer.SkipVote(player)
 		else

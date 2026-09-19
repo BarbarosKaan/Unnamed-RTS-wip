@@ -389,7 +389,10 @@ function GuiManager.OpenSpawnGui(buildingModel)
 	if not table.find(buildingData[buildingModel.Name].Behaviour, "Spawn") then
 		return
 	end
-	mobileXButton.Visible = true
+	local isMobile = uiService.TouchEnabled
+	if isMobile then
+		mobileXButton.Visible = true
+	end
 	if connectedGuis[buildingModel] then
 		connectedGuis[buildingModel].Gui.Enabled = true
 		return
@@ -544,7 +547,10 @@ end
 function GuiManager.SelectNew(newSelected, allSelecteds)
 	-- Clear old selection icons first to avoid overlap.
 	clearSelecteds()
-	mobileXButton.Visible = true
+	local isMobile = uiService.TouchEnabled
+	if isMobile then
+		mobileXButton.Visible = true
+	end
 	selectionContainer.Visible = true
 	selectedAmount.Text = "x" .. #allSelecteds
 
