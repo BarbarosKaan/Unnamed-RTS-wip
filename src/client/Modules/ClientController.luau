@@ -4,6 +4,7 @@ local Players = game:GetService("Players")
 local StarterPlayer = game:GetService("StarterPlayer")
 local StarterPlayerScripts = StarterPlayer.StarterPlayerScripts
 local UserInputService = game:GetService("UserInputService")
+local ContextActionService = game:GetService("ContextActionService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
 
@@ -141,7 +142,10 @@ function ClientController.StartUnitSystem()
 	local selectionBox = plr.PlayerGui:WaitForChild("GameGui"):WaitForChild("SelectionBox")
 	local dragStart = nil
 	local isDragging = false
+	local mobileBoxSelectionActive = false
+	local ignoreMobileTapUntil = 0
 	local DRAG_THRESHOLD = 20
+	local MOBILE_BOX_SELECTION_ACTION = "MobileBoxSelection"
 
 	local function updateSelectionBox(from, to)
 		local minX, minY = math.min(from.X, to.X), math.min(from.Y, to.Y)
@@ -226,6 +230,46 @@ function ClientController.StartUnitSystem()
 		end
 	end
 
+	local function handleMobileBoxSelectionAction(_, inputState, input)
+		if inputState == Enum.UserInputState.Begin then
+			dragStart = input.Position
+			isDragging = false
+		elseif inputState == Enum.UserInputState.Change and dragStart then
+			handleDragMovement(input)
+		elseif inputState == Enum.UserInputState.End and dragStart then
+			if isDragging then
+				finishBoxSelection(input)
+				ignoreMobileTapUntil = os.clock() + 0.25
+				GuiManager.SetMobileDragActive(false)
+			end
+			dragStart, isDragging = nil, false
+			selectionBox.Visible = false
+		end
+
+		return Enum.ContextActionResult.Sink
+	end
+
+	local function onMobileDragModeChanged(active)
+		mobileBoxSelectionActive = active
+		dragStart = nil
+		isDragging = false
+		selectionBox.Visible = false
+
+		if active then
+			ContextActionService:BindActionAtPriority(
+				MOBILE_BOX_SELECTION_ACTION,
+				handleMobileBoxSelectionAction,
+				false,
+				Enum.ContextActionPriority.High.Value,
+				Enum.UserInputType.Touch
+			)
+		else
+			ContextActionService:UnbindAction(MOBILE_BOX_SELECTION_ACTION)
+		end
+	end
+
+	GuiManager.SetMobileDragModeChangedCallback(onMobileDragModeChanged)
+
 	local function handleSingleClickOrMove(isShift)
 		local target = mouse.Target and mouse.Target:FindFirstAncestorOfClass("Model")
 
@@ -291,7 +335,10 @@ function ClientController.StartUnitSystem()
 	end
 
 	local function handleMobileTap(positions, gameProcessed)
-		if gameProcessed or placementManager.IsPlacing() then
+		if gameProcessed or placementManager.IsPlacing() or mobileBoxSelectionActive then
+			return
+		end
+		if os.clock() < ignoreMobileTapUntil then
 			return
 		end
 		local position = positions[1]

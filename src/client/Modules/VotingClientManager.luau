@@ -7,6 +7,7 @@ local remotes = ReplicatedStorage.Remotes
 local ToggleVotingEvent = remotes:WaitForChild("ToggleVotingEvent")
 local SendVoteEvent = remotes:WaitForChild("SendVoteEvent")
 local UpdateVotesEvent = remotes:WaitForChild("UpdateVotesEvent")
+local REQUEST_VOTING_STATE = "__REQUEST_VOTING_STATE__"
 
 local screenGui
 local container
@@ -35,6 +36,8 @@ function VotingManager.Init(modules)
 	UpdateVotesEvent.OnClientEvent:Connect(function(voteCounts, skipCount, skipNeeded)
 		VotingManager.UpdateVotes(voteCounts, skipCount, skipNeeded)
 	end)
+
+	SendVoteEvent:FireServer(REQUEST_VOTING_STATE)
 end
 
 function VotingManager.StartVoting(ChosenMaps, timer, skipNeeded)

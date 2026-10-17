@@ -11,6 +11,7 @@ local remotes = ReplicatedStorage.Remotes
 local ToggleVotingEvent = remotes:WaitForChild("ToggleVotingEvent")
 local SendVoteEvent = remotes:WaitForChild("SendVoteEvent")
 local UpdateVotesEvent = remotes:WaitForChild("UpdateVotesEvent")
+local REQUEST_VOTING_STATE = "__REQUEST_VOTING_STATE__"
 
 local countdownThread
 local votingTimer = nil
@@ -245,6 +246,10 @@ function VotingServer.StartVoting()
 
 	sendVoteConnection = SendVoteEvent.OnServerEvent:Connect(function(player, mapName)
 		if not votingActive then
+			return
+		end
+		if mapName == REQUEST_VOTING_STATE then
+			sendCurrentVotingState(player)
 			return
 		end
 		if mapName == "Skip" then

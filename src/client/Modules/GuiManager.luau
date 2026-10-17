@@ -40,6 +40,11 @@ local sellButton = buttonsFrame:WaitForChild("SellButton")
 local interactButton = buttonsFrame:WaitForChild("InteractButton")
 
 local mobileXButton = gameGui:WaitForChild("MobileXButton")
+local mobileDragButton = gameGui:WaitForChild("MobileDragButton")
+local mobileDragButtonNormalColor = Color3.fromRGB(204, 206, 206)
+local mobileDragButtonActiveColor = Color3.fromRGB(105, 105, 106)
+local mobileDragActive = false
+local mobileDragModeChangedCallback
 
 local spawnGuiTemplate = guiAssets:WaitForChild("SpawnGuiTemplate")
 local spawnBtnTemplate = guiAssets:WaitForChild("SpawnTemplate")
@@ -225,6 +230,8 @@ end
 
 -- Sets up the HUD for the game
 function GuiManager.OnGameStarted()
+	mobileDragButton.Visible = uiService.TouchEnabled
+	GuiManager.SetMobileDragActive(false)
 	sellButton.MouseButton1Click:Connect(function()
 		local cooldown = ifCooldown()
 		if cooldown then
@@ -326,8 +333,30 @@ function GuiManager.OnGameStarted()
 end
 
 function GuiManager.OnGameStopped()
+	GuiManager.SetMobileDragActive(false)
+	mobileDragButton.Visible = false
 	HUD.Visible = false
 end
+
+function GuiManager.SetMobileDragModeChangedCallback(callback)
+	mobileDragModeChangedCallback = callback
+end
+
+function GuiManager.SetMobileDragActive(active)
+	if mobileDragActive == active then
+		return
+	end
+
+	mobileDragActive = active
+	mobileDragButton.BackgroundColor3 = if active then mobileDragButtonActiveColor else mobileDragButtonNormalColor
+	if mobileDragModeChangedCallback then
+		mobileDragModeChangedCallback(active)
+	end
+end
+
+mobileDragButton.MouseButton1Click:Connect(function()
+	GuiManager.SetMobileDragActive(not mobileDragActive)
+end)
 
 function GuiManager.OnVotingStarted()
 	HUD.Visible = false
