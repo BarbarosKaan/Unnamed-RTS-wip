@@ -19,7 +19,7 @@ local guiAssets = assets.UI
 local troopData = require(dataFolder.TroopData)
 local buildingData = require(dataFolder.BuildingData)
 
-local queueEvent = remotes.QueueEvent
+local queueRemote = remotes.QueueRemote
 local enoughCashRemote = remotes.EnoughCash
 local enoughPopulationRemote = remotes.EnoughPopulation
 local isLimitRemote = remotes.IsLimit
@@ -39,8 +39,10 @@ local buttonsFrame = selectionContainer:WaitForChild("Buttons")
 local sellButton = buttonsFrame:WaitForChild("SellButton")
 local interactButton = buttonsFrame:WaitForChild("InteractButton")
 
-local mobileXButton = gameGui:WaitForChild("MobileXButton")
-local mobileDragButton = gameGui:WaitForChild("MobileDragButton")
+local mobileButtonsFrame = gameGui:WaitForChild("MobileButtons")
+local mobileBuildingButtons = mobileButtonsFrame:WaitForChild("MobileBuildingButtons")
+local mobileXButton = mobileButtonsFrame:WaitForChild("MobileXButton")
+local mobileDragButton = mobileButtonsFrame:WaitForChild("MobileDragButton")
 local mobileDragButtonNormalColor = Color3.fromRGB(204, 206, 206)
 local mobileDragButtonActiveColor = Color3.fromRGB(105, 105, 106)
 local mobileDragActive = false
@@ -63,7 +65,6 @@ local lastRedNotificationCount = 1
 
 local buildingPlacing = gameGui:WaitForChild("BuildingPlacing")
 local warningTemp = guiAssets:WaitForChild("WarningTemplate")
-local mobileBuildingButtons = gameGui:WaitForChild("MobileBuildingButtons")
 local lastWarning = {}
 
 local HUD = gameGui:WaitForChild("HUD")
@@ -230,7 +231,7 @@ end
 
 -- Sets up the HUD for the game
 function GuiManager.OnGameStarted()
-	mobileDragButton.Visible = uiService.TouchEnabled
+	mobileButtonsFrame.Visible = uiService.TouchEnabled
 	GuiManager.SetMobileDragActive(false)
 	sellButton.MouseButton1Click:Connect(function()
 		local cooldown = ifCooldown()
@@ -269,7 +270,6 @@ function GuiManager.OnGameStarted()
 		GuiManager.CloseAllSpawnGuis()
 		SelectionManager.ClearAll()
 		clearSelecteds()
-		mobileXButton.Visible = false
 	end)
 	notificationEvent.OnClientEvent:Connect(function(color, msg)
 		if color == "Red" then
@@ -334,7 +334,7 @@ end
 
 function GuiManager.OnGameStopped()
 	GuiManager.SetMobileDragActive(false)
-	mobileDragButton.Visible = false
+	mobileButtonsFrame.Visible = false
 	HUD.Visible = false
 end
 
@@ -418,10 +418,6 @@ function GuiManager.OpenSpawnGui(buildingModel)
 	if not table.find(buildingData[buildingModel.Name].Behaviour, "Spawn") then
 		return
 	end
-	local isMobile = uiService.TouchEnabled
-	if isMobile then
-		mobileXButton.Visible = true
-	end
 	if connectedGuis[buildingModel] then
 		connectedGuis[buildingModel].Gui.Enabled = true
 		return
@@ -493,7 +489,10 @@ function GuiManager.OpenSpawnGui(buildingModel)
 					return
 				end
 
-				queueEvent:FireServer(buildingModel, button.Name, true)
+				local success = queueRemote:InvokeServer(buildingModel, button.Name, true)
+				if not success then
+					return
+				end
 
 				local queueFrame = queueBtnTemplate:Clone()
 				queueFrame.Name = button.Name
@@ -527,7 +526,10 @@ function GuiManager.OpenSpawnGui(buildingModel)
 						return
 					end
 					table.remove(connectedGuis[buildingModel].Queue, idx)
-					queueEvent:FireServer(buildingModel, name, false)
+					local Qsuccess = queueRemote:InvokeServer(buildingModel, name, false)
+					if not Qsuccess then
+						return
+					end
 					qFrame:Destroy()
 				end)
 
@@ -576,10 +578,6 @@ end
 function GuiManager.SelectNew(newSelected, allSelecteds)
 	-- Clear old selection icons first to avoid overlap.
 	clearSelecteds()
-	local isMobile = uiService.TouchEnabled
-	if isMobile then
-		mobileXButton.Visible = true
-	end
 	selectionContainer.Visible = true
 	selectedAmount.Text = "x" .. #allSelecteds
 

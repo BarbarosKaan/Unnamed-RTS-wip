@@ -6,7 +6,7 @@ local clickAtt = game.ReplicatedStorage.Assets.Effects.ClickAttachment
 
 -- Add a highlight box around a model.
 function VisualManager.AddHighlight(model)
-	if not model.PrimaryPart then
+	if not model.PrimaryPart or model:FindFirstChild("SelectionBox") then
 		return
 	end
 	local highlight = Instance.new("SelectionBox")

@@ -20,7 +20,7 @@ local UnitClass = require(classes.UnitClass)
 
 local unitManager = require(modules.UnitManager)
 
-local queueEvent = remotes.QueueEvent
+local queueRemote = remotes.QueueRemote
 local moveEvent = remotes.MoveEvent
 local buildEvent = remotes.BuildEvent
 local sellEvent = remotes.SellEvent
@@ -117,10 +117,10 @@ function EventManager.Init(serverController)
 		end)
 	end)
 
-	queueEvent.OnServerEvent:Connect(function(plr, building, unit, isAdding)
+	queueRemote.OnServerInvoke = function(plr, building, unit, isAdding)
 		local myBuilding = unitManager.GetBuilding(building)
 		if not myBuilding or myBuilding.Owner ~= plr or not table.find(myBuilding.Data.Behaviour, "Spawn") then
-			return
+			return false
 		end
 
 		if isAdding then
@@ -128,18 +128,18 @@ function EventManager.Init(serverController)
 			local isLimit = UnitClass.checkForLimit(plr, data)
 			if isLimit then
 				print("limit")
-				return
+				return false
 			end
 			if not checkPlrPopulation(plr, data) then
 				print("Not enough population")
-				return
+				return false
 			end
 
 			local unitCost = data.Cost
 			local playerCash = getPlayerCash(plr)
 			if not playerCash or playerCash.Value < unitCost then
 				print("not enough cash")
-				return
+				return false
 			end
 
 			playerCash.Value -= unitCost
@@ -147,7 +147,7 @@ function EventManager.Init(serverController)
 		else
 			local success = myBuilding:RemoveQueue(unit)
 			if not success then
-				return
+				return false
 			end
 			local unitCost = troopData[unit].Cost
 			local playerCash = getPlayerCash(plr)
@@ -155,7 +155,8 @@ function EventManager.Init(serverController)
 				playerCash.Value += unitCost * 0.1
 			end
 		end
-	end)
+		return true
+	end
 
 	buildEvent.OnServerEvent:Connect(function(plr, building, pos, zonePart)
 		if not isGameActive() then

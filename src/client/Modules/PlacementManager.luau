@@ -23,6 +23,8 @@ local placementConn = nil
 local currentClone = nil
 local currentData = nil
 local placementEndCallback = nil
+local placementRequestId = 0
+local isStartingPlacement = false
 local mobileButtonConnections = {}
 local lastTargetPosition = nil
 local lastIsColliding = true
@@ -196,36 +198,61 @@ function PlacementManager.Start(buildingName, onEnd)
 	if placementConn then
 		return
 	end
+	placementRequestId += 1
+	local requestId = placementRequestId
+	isStartingPlacement = true
+
+	local function finishStart()
+		if requestId == placementRequestId then
+			isStartingPlacement = false
+		end
+	end
+
 	local data = buildingData[buildingName]
 	if not data then
+		finishStart()
+		return
+	end
+
+	local buildingModel = game.ReplicatedStorage.Assets.Models.BuildingModels:FindFirstChild(buildingName)
+	if not buildingModel then
+		finishStart()
 		return
 	end
 
 	local isLimit = isLimitRemote:InvokeServer("BUILDING", data)
+	if requestId ~= placementRequestId then
+		return
+	end
 	if isLimit then
+		finishStart()
 		GuiManager.NewRedNotification("This building limit reached! (" .. data.Limit .. ")")
 		return
 	end
 
 	local enoughCash = enoughCashRemote:InvokeServer("BUILDING", data.Name)
+	if requestId ~= placementRequestId then
+		return
+	end
 	if not enoughCash then
+		finishStart()
 		GuiManager.NewRedNotification("Not Enough Cash!")
 		return
 	end
 
 	local enoughEnergy = enoughEnergyRemote:InvokeServer(data)
+	if requestId ~= placementRequestId then
+		return
+	end
 	if not enoughEnergy then
+		finishStart()
 		GuiManager.NewRedNotification("Not Enough Energy!")
 		return
 	end
 
+	finishStart()
 	currentData = data
 	placementEndCallback = onEnd
-
-	local buildingModel = game.ReplicatedStorage.Assets.Models.BuildingModels:FindFirstChild(buildingName)
-	if not buildingModel then
-		return
-	end
 
 	currentClone = buildingModel:Clone()
 
@@ -394,6 +421,8 @@ end
 
 -- Cancel the active placement session and clean up the preview.
 function PlacementManager.Cancel()
+	placementRequestId += 1
+	isStartingPlacement = false
 	local endCallback = placementEndCallback
 	disconnectMobileButtonConnections()
 	if placementConn then
@@ -424,7 +453,7 @@ end
 
 -- Return whether a building placement session is currently active.
 function PlacementManager.IsPlacing()
-	return placementConn ~= nil
+	return placementConn ~= nil or isStartingPlacement
 end
 
 return PlacementManager

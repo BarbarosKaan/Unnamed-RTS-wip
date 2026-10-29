@@ -41,12 +41,17 @@ function SelectionManager.DeselectUnit(model)
 
 	GuiManager.Deselect(model, SelectionManager.SelectedUnits)
 	VisualManager.RemoveSelectionBox(model)
+	SelectionManager.HoverEnd(model)
+	if model:FindFirstChild("Type") and model.Type.Value == "BUILDING" then
+		GuiManager.CloseSpawnGui(model)
+	end
 end
 
 -- Clear the full current selection.
 function SelectionManager.ClearAll()
 	for _, unit in ipairs(table.clone(SelectionManager.SelectedUnits)) do
 		SelectionManager.DeselectUnit(unit)
+		SelectionManager.HoverEnd(unit)
 	end
 end
 

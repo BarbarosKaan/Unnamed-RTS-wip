@@ -349,7 +349,7 @@ function ClientController.StartUnitSystem()
 		local ray = camera:ScreenPointToRay(position.X, position.Y)
 		local rayParams = RaycastParams.new()
 		rayParams.FilterType = Enum.RaycastFilterType.Exclude
-		rayParams.FilterDescendantsInstances = { plr.Character }
+		rayParams.FilterDescendantsInstances = { plr.Character, workspace:WaitForChild("Walls") }
 
 		local result = workspace:Raycast(ray.Origin, ray.Direction * 1000, rayParams)
 		if not result then
@@ -359,6 +359,7 @@ function ClientController.StartUnitSystem()
 		local target = result.Instance:FindFirstAncestorOfClass("Model")
 		if target and target:FindFirstChild("Owner") and target.Owner.Value == plr then
 			SelectionManager.SelectUnit(target)
+			SelectionManager.HoverStart(target)
 
 			if target:FindFirstChild("Type") and target.Type.Value == "BUILDING" then
 				if GuiManager.IsSpawnGuiOpen(target) then
